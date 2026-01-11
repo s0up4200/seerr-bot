@@ -1,8 +1,7 @@
 import { tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import { seerr } from "../../services/seerr.js";
-
-const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w342";
+import { formatErrorMessage, formatMediaResult } from "../../utils.js";
 
 export const discoverTrendingTool = tool(
   "discover_trending",
@@ -34,17 +33,9 @@ export const discoverTrendingTool = tool(
         .filter((r) => r.mediaType === "movie" || r.mediaType === "tv")
         .slice(0, 10);
 
-      // Format each item as a separate section with description and poster
-      const sections = results.map((r, i) => {
-        const title = r.title || r.name || "Unknown";
-        const year = (r.releaseDate || r.firstAirDate || "").slice(0, 4);
-        const type = r.mediaType === "movie" ? "Movie" : "TV";
-        const rating = r.voteAverage?.toFixed(1) || "N/A";
-        const tmdbUrl = `https://www.themoviedb.org/${r.mediaType}/${r.id}`;
-        const overview = r.overview ? r.overview.slice(0, 200) + (r.overview.length > 200 ? "..." : "") : "No overview available.";
-        const poster = r.posterPath ? `\n[POSTER:${TMDB_IMAGE_BASE}${r.posterPath}]` : "";
-        return `${i + 1}. ${title} (${year}) - ${type}\nRating: ${rating}/10\n${tmdbUrl}\n\n${overview}${poster}`;
-      });
+      const sections = results.map((r, i) =>
+        formatMediaResult(r, i, r.mediaType as "movie" | "tv", { showMediaType: true })
+      );
 
       return {
         content: [
@@ -59,7 +50,7 @@ export const discoverTrendingTool = tool(
         content: [
           {
             type: "text",
-            text: `Error fetching trending: ${error instanceof Error ? error.message : "Unknown error"}`,
+            text: `Error fetching trending: ${formatErrorMessage(error)}`,
           },
         ],
       };

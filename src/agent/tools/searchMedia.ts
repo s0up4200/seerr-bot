@@ -1,8 +1,8 @@
 import { tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import { seerr } from "../../services/seerr.js";
-
-const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w342";
+import { TMDB_IMAGE_BASE } from "../../constants.js";
+import { formatErrorMessage } from "../../utils.js";
 
 // Parse year from query like "Anaconda (2025)", "Anaconda 2025", "Anaconda - 2025"
 function parseYearFromQuery(query: string): { title: string; year?: string } {
@@ -100,7 +100,7 @@ export const searchMediaTool = tool(
         content: [
           {
             type: "text",
-            text: `Error searching: ${error instanceof Error ? error.message : "Unknown error"}`,
+            text: `Error searching: ${formatErrorMessage(error)}`,
           },
         ],
       };

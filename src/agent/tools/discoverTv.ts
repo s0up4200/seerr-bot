@@ -1,35 +1,8 @@
 import { tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import { seerr } from "../../services/seerr.js";
-
-const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w342";
-
-// Common TV genre IDs from TMDB
-const GENRE_MAP: Record<string, number> = {
-  "action & adventure": 10759,
-  action: 10759,
-  adventure: 10759,
-  animation: 16,
-  comedy: 35,
-  crime: 80,
-  documentary: 99,
-  drama: 18,
-  family: 10751,
-  kids: 10762,
-  mystery: 9648,
-  news: 10763,
-  reality: 10764,
-  "sci-fi & fantasy": 10765,
-  "science fiction": 10765,
-  "sci-fi": 10765,
-  scifi: 10765,
-  fantasy: 10765,
-  soap: 10766,
-  talk: 10767,
-  "war & politics": 10768,
-  war: 10768,
-  western: 37,
-};
+import { TV_GENRE_MAP } from "../../constants.js";
+import { formatErrorMessage, formatMediaResult } from "../../utils.js";
 
 export const discoverTvTool = tool(
   "discover_tv",
@@ -63,7 +36,7 @@ export const discoverTvTool = tool(
 
       // Look up genre ID
       const genreId = args.genre
-        ? GENRE_MAP[args.genre.toLowerCase()]
+        ? TV_GENRE_MAP[args.genre.toLowerCase()]
         : undefined;
 
       const response = await seerr.discoverTv({
@@ -88,16 +61,7 @@ export const discoverTvTool = tool(
       if (args.minRating) filters.push(`rated ${args.minRating}+`);
       const filterDesc = filters.length > 0 ? ` (${filters.join(", ")})` : "";
 
-      // Format each TV show as a separate section with description and poster
-      const sections = results.map((r, i) => {
-        const title = r.name || r.title || "Unknown";
-        const year = (r.firstAirDate || "").slice(0, 4) || "TBA";
-        const rating = r.voteAverage ? `${r.voteAverage.toFixed(1)}/10` : "N/A";
-        const tmdbUrl = `https://www.themoviedb.org/tv/${r.id}`;
-        const overview = r.overview ? r.overview.slice(0, 200) + (r.overview.length > 200 ? "..." : "") : "No overview available.";
-        const poster = r.posterPath ? `\n[POSTER:${TMDB_IMAGE_BASE}${r.posterPath}]` : "";
-        return `${i + 1}. ${title} (${year})\nRating: ${rating}\n${tmdbUrl}\n\n${overview}${poster}`;
-      });
+      const sections = results.map((r, i) => formatMediaResult(r, i, "tv"));
 
       return {
         content: [
@@ -112,7 +76,7 @@ export const discoverTvTool = tool(
         content: [
           {
             type: "text",
-            text: `Error discovering TV shows: ${error instanceof Error ? error.message : "Unknown error"}`,
+            text: `Error discovering TV shows: ${formatErrorMessage(error)}`,
           },
         ],
       };

@@ -56,14 +56,21 @@ Overview here...
 
 [POSTER:https://image.tmdb.org/t/p/w342/poster.jpg]
 
+## Media Status Handling
+Only offer to request media when status is "Not Requested". For any other status:
+- **Pending**: Request submitted, awaiting admin approval. Do not request again.
+- **Requested**: Approved and sent to download queue. Do not request again.
+- **Partially Available**: Some content in library (for TV: some seasons/episodes). Can request missing content.
+- **Available**: Fully in library. Do not request.
+DO NOT offer to request media that is Pending, Requested, or Available.
+
 ## Guidelines
 - Always get_media_details for TV shows before requesting to know season count
 - Never request season 0 (specials) unless explicitly asked
 - For "latest season", get numberOfSeasons from details and request only that one
 - Keep responses concise - Discord has a 2000 character limit
-- If something is already available or requested, inform the user
 - Never request 4K versions
-- Never use emojis in responses - keep output clean and professional`;
+- Be direct and factual - avoid filler phrases like "You're absolutely right" or "Great question"`;
 
 export interface AgentResponse {
   result: string;

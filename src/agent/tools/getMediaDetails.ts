@@ -1,26 +1,8 @@
 import { tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import { seerr } from "../../services/seerr.js";
-import { MediaStatus } from "../../types/index.js";
-
-const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w342";
-
-function getStatusText(status: number): string {
-  switch (status) {
-    case MediaStatus.AVAILABLE:
-      return "Available";
-    case MediaStatus.PARTIALLY_AVAILABLE:
-      return "Partially Available";
-    case MediaStatus.PROCESSING:
-      return "Processing";
-    case MediaStatus.PENDING:
-      return "Pending";
-    case MediaStatus.BLACKLISTED:
-      return "Blacklisted";
-    default:
-      return "Not Requested";
-  }
-}
+import { TMDB_IMAGE_BASE } from "../../constants.js";
+import { getMediaStatusText, formatErrorMessage } from "../../utils.js";
 
 export const getMediaDetailsTool = tool(
   "get_media_details",
@@ -36,7 +18,7 @@ export const getMediaDetailsTool = tool(
       if (args.mediaType === "movie") {
         const movie = await seerr.getMovieDetails(args.tmdbId);
         const status = movie.mediaInfo
-          ? getStatusText(movie.mediaInfo.status)
+          ? getMediaStatusText(movie.mediaInfo.status)
           : "Not Requested";
 
         const tmdbUrl = `https://www.themoviedb.org/movie/${movie.id}`;
@@ -61,7 +43,7 @@ Overview: ${movie.overview || "No overview available."}${posterTag}`,
       } else {
         const tv = await seerr.getTvDetails(args.tmdbId);
         const status = tv.mediaInfo
-          ? getStatusText(tv.mediaInfo.status)
+          ? getMediaStatusText(tv.mediaInfo.status)
           : "Not Requested";
 
         const tmdbUrl = `https://www.themoviedb.org/tv/${tv.id}`;
@@ -100,7 +82,7 @@ Overview: ${tv.overview || "No overview available."}${posterTag}`,
         content: [
           {
             type: "text",
-            text: `Error getting details: ${error instanceof Error ? error.message : "Unknown error"}`,
+            text: `Error getting details: ${formatErrorMessage(error)}`,
           },
         ],
       };

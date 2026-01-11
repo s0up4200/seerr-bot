@@ -1,6 +1,7 @@
 import { tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import { omdb } from "../../services/omdb.js";
+import { formatErrorMessage } from "../../utils.js";
 
 export const verifyImdbTool = tool(
   "verify_imdb",
@@ -104,7 +105,7 @@ Plot: ${details.Plot}`,
         content: [
           {
             type: "text",
-            text: `IMDB verification error: ${error instanceof Error ? error.message : "Unknown error"}`,
+            text: `IMDB verification error: ${formatErrorMessage(error)}`,
           },
         ],
       };

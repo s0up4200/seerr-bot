@@ -1,24 +1,8 @@
 import { tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import { seerr } from "../../services/seerr.js";
-import { RequestStatus, type MediaRequestItem } from "../../types/index.js";
-
-function getStatusText(status: RequestStatus): string {
-  switch (status) {
-    case RequestStatus.PENDING:
-      return "Pending";
-    case RequestStatus.APPROVED:
-      return "Approved";
-    case RequestStatus.DECLINED:
-      return "Declined";
-    case RequestStatus.FAILED:
-      return "Failed";
-    case RequestStatus.COMPLETED:
-      return "Completed";
-    default:
-      return "Unknown";
-  }
-}
+import type { MediaRequestItem } from "../../types/index.js";
+import { getRequestStatusText, formatErrorMessage } from "../../utils.js";
 
 interface MediaTitleInfo {
   title: string;
@@ -83,7 +67,7 @@ export const listRequestsTool = tool(
         .map((req, index) => {
           const { title, year } = mediaInfos[index];
           const type = req.type === "movie" ? "Movie" : "TV";
-          const status = getStatusText(req.status);
+          const status = getRequestStatusText(req.status);
           const requester = req.requestedBy.displayName || req.requestedBy.username || req.requestedBy.email.split("@")[0];
           const date = new Date(req.createdAt).toLocaleDateString();
 
@@ -114,7 +98,7 @@ export const listRequestsTool = tool(
         content: [
           {
             type: "text",
-            text: `Error listing requests: ${error instanceof Error ? error.message : "Unknown error"}`,
+            text: `Error listing requests: ${formatErrorMessage(error)}`,
           },
         ],
       };

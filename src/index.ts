@@ -7,36 +7,36 @@ import {
   TextChannel,
   DMChannel,
 } from "discord.js";
+import { config } from "./config.js";
+import { processMediaRequest } from "./agent/index.js";
+import { sessionManager } from "./sessions.js";
 
-// Parse response into sections, each with optional poster
-function parseResponseSections(text: string): Array<{ text: string; posterUrl: string | null }> {
+interface ResponseSection {
+  text: string;
+  posterUrl: string | null;
+}
+
+function parseResponseSections(text: string): ResponseSection[] {
   const posterRegex = /\[POSTER:(https:\/\/[^\]]+)\]/g;
-
-  // Find all poster tags
   const posterMatches = [...text.matchAll(posterRegex)];
 
   if (posterMatches.length === 0) {
-    // No posters - return as single section
     return [{ text: text.trim(), posterUrl: null }];
   }
 
   if (posterMatches.length === 1) {
-    // Single poster - return as single section
     const posterUrl = posterMatches[0][1];
     const cleanText = text.replace(posterRegex, "").trim();
     return [{ text: cleanText, posterUrl }];
   }
 
-  // Multiple posters - split by each [POSTER:url] tag to create sections
-  const sections: Array<{ text: string; posterUrl: string | null }> = [];
+  const sections: ResponseSection[] = [];
   let lastIndex = 0;
 
   for (const match of posterMatches) {
     const posterUrl = match[1];
     const matchStart = match.index!;
     const matchEnd = matchStart + match[0].length;
-
-    // Get text before this poster (belongs to this section)
     const sectionText = text.slice(lastIndex, matchStart).trim();
 
     if (sectionText) {
@@ -46,18 +46,13 @@ function parseResponseSections(text: string): Array<{ text: string; posterUrl: s
     lastIndex = matchEnd;
   }
 
-  // Any remaining text after the last poster (unlikely but handle it)
   const remaining = text.slice(lastIndex).trim();
   if (remaining) {
     sections.push({ text: remaining, posterUrl: null });
   }
 
-  // Filter out empty header sections (like "Top movies (from 2026):")
-  return sections.filter(s => s.text.length > 50 || s.posterUrl);
+  return sections.filter((s) => s.text.length > 50 || s.posterUrl);
 }
-import { config } from "./config.js";
-import { processMediaRequest } from "./agent/index.js";
-import { sessionManager } from "./sessions.js";
 
 const client = new Client({
   intents: [

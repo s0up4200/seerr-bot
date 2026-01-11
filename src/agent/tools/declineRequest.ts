@@ -1,6 +1,7 @@
 import { tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import { seerr } from "../../services/seerr.js";
+import { formatErrorMessage } from "../../utils.js";
 
 export const declineRequestTool = tool(
   "decline_request",
@@ -27,7 +28,7 @@ export const declineRequestTool = tool(
         ],
       };
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
+      const message = formatErrorMessage(error);
 
       if (message.includes("403")) {
         return {

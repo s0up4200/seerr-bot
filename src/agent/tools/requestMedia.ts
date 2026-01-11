@@ -2,6 +2,7 @@ import { tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import { seerr } from "../../services/seerr.js";
 import { RequestStatus } from "../../types/index.js";
+import { formatErrorMessage } from "../../utils.js";
 
 function getRequestStatusText(status: number): string {
   switch (status) {
@@ -82,10 +83,8 @@ Created: ${new Date(response.createdAt).toLocaleString()}`,
         };
       }
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Unknown error";
+      const message = formatErrorMessage(error);
 
-      // Check for common errors
       if (message.includes("409") || message.includes("already")) {
         return {
           content: [
