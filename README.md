@@ -1,6 +1,6 @@
 # seerr-bot
 
-Discord bot for Seerr media requests using Claude Agent SDK.
+Discord bot for Seerr media requests using the Anthropic SDK.
 
 ## Setup
 
