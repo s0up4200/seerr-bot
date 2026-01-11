@@ -69,16 +69,13 @@ class SeerrService {
     });
   }
 
-  async requestTv(
-    tmdbId: number,
-    seasons: number[]
-  ): Promise<RequestResponse> {
+  async requestTv(tmdbId: number, seasons: number[]): Promise<RequestResponse> {
     return this.request<RequestResponse>("/api/v1/request", {
       method: "POST",
       body: JSON.stringify({
         mediaType: "tv",
         mediaId: tmdbId,
-        seasons: seasons,
+        seasons,
         is4k: false,
       }),
     });

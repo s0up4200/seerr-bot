@@ -16,34 +16,32 @@ interface ResponseSection {
   posterUrl: string | null;
 }
 
-function parseResponseSections(text: string): ResponseSection[] {
-  const posterRegex = /\[POSTER:(https:\/\/[^\]]+)\]/g;
-  const posterMatches = [...text.matchAll(posterRegex)];
+const POSTER_REGEX = /\[POSTER:(https:\/\/[^\]]+)\]/g;
 
+function parseResponseSections(text: string): ResponseSection[] {
+  const posterMatches = [...text.matchAll(POSTER_REGEX)];
+
+  // No posters - return as single section
   if (posterMatches.length === 0) {
     return [{ text: text.trim(), posterUrl: null }];
   }
 
+  // Single poster - attach to entire cleaned text
   if (posterMatches.length === 1) {
-    const posterUrl = posterMatches[0][1];
-    const cleanText = text.replace(posterRegex, "").trim();
-    return [{ text: cleanText, posterUrl }];
+    const cleanText = text.replace(POSTER_REGEX, "").trim();
+    return [{ text: cleanText, posterUrl: posterMatches[0][1] }];
   }
 
+  // Multiple posters - split into sections where each poster attaches to preceding text
   const sections: ResponseSection[] = [];
   let lastIndex = 0;
 
   for (const match of posterMatches) {
-    const posterUrl = match[1];
-    const matchStart = match.index!;
-    const matchEnd = matchStart + match[0].length;
-    const sectionText = text.slice(lastIndex, matchStart).trim();
-
+    const sectionText = text.slice(lastIndex, match.index!).trim();
     if (sectionText) {
-      sections.push({ text: sectionText, posterUrl });
+      sections.push({ text: sectionText, posterUrl: match[1] });
     }
-
-    lastIndex = matchEnd;
+    lastIndex = match.index! + match[0].length;
   }
 
   const remaining = text.slice(lastIndex).trim();
@@ -52,6 +50,39 @@ function parseResponseSections(text: string): ResponseSection[] {
   }
 
   return sections.filter((s) => s.text.length > 50 || s.posterUrl);
+}
+
+const DISCORD_MAX_LENGTH = 2000;
+const MIN_CHUNK_LENGTH = 1000;
+
+function splitTextIntoChunks(text: string, maxLength = DISCORD_MAX_LENGTH): string[] {
+  if (text.length <= maxLength) {
+    return [text];
+  }
+
+  const chunks: string[] = [];
+  let remaining = text;
+
+  while (remaining.length > 0) {
+    if (remaining.length <= maxLength) {
+      chunks.push(remaining);
+      break;
+    }
+
+    // Find a good break point: prefer newline, then space, then hard cut
+    let breakPoint = remaining.lastIndexOf("\n", maxLength);
+    if (breakPoint === -1 || breakPoint < MIN_CHUNK_LENGTH) {
+      breakPoint = remaining.lastIndexOf(" ", maxLength);
+    }
+    if (breakPoint === -1 || breakPoint < MIN_CHUNK_LENGTH) {
+      breakPoint = maxLength;
+    }
+
+    chunks.push(remaining.slice(0, breakPoint));
+    remaining = remaining.slice(breakPoint).trim();
+  }
+
+  return chunks;
 }
 
 const client = new Client({
@@ -108,16 +139,10 @@ client.on("messageCreate", async (message: Message) => {
     channel instanceof TextChannel || channel instanceof DMChannel;
 
   try {
-    // Show typing indicator if channel supports it
-    if (isTextChannel) {
-      await channel.sendTyping();
-    }
-
-    // Set up a typing interval to keep the indicator active during processing
+    // Keep typing indicator active during processing
+    if (isTextChannel) await channel.sendTyping();
     const typingInterval = setInterval(() => {
-      if (isTextChannel) {
-        channel.sendTyping().catch(() => {});
-      }
+      if (isTextChannel) channel.sendTyping().catch(() => {});
     }, 5000);
 
     console.log(`Processing request from ${message.author.tag}: ${content}`);
@@ -170,39 +195,15 @@ client.on("messageCreate", async (message: Message) => {
 
       await message.reply({ embeds });
     } else {
-      // No posters - send as plain text
-      const fullText = sections.map(s => s.text).join("\n\n---\n\n");
+      // No posters - send as plain text, chunked if needed
+      const fullText = sections.map((s) => s.text).join("\n\n---\n\n");
+      const chunks = splitTextIntoChunks(fullText);
 
-      if (fullText.length > 2000) {
-        const chunks: string[] = [];
-        let remaining = fullText;
-
-        while (remaining.length > 0) {
-          if (remaining.length <= 2000) {
-            chunks.push(remaining);
-            break;
-          }
-
-          let breakPoint = remaining.lastIndexOf("\n", 2000);
-          if (breakPoint === -1 || breakPoint < 1000) {
-            breakPoint = remaining.lastIndexOf(" ", 2000);
-          }
-          if (breakPoint === -1 || breakPoint < 1000) {
-            breakPoint = 2000;
-          }
-
-          chunks.push(remaining.slice(0, breakPoint));
-          remaining = remaining.slice(breakPoint).trim();
+      await message.reply(chunks[0]);
+      for (let i = 1; i < chunks.length; i++) {
+        if (isTextChannel) {
+          await channel.send(chunks[i]);
         }
-
-        await message.reply(chunks[0]);
-        for (let i = 1; i < chunks.length; i++) {
-          if (isTextChannel) {
-            await channel.send(chunks[i]);
-          }
-        }
-      } else {
-        await message.reply(fullText);
       }
     }
 

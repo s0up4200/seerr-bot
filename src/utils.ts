@@ -1,4 +1,5 @@
 import { MediaStatus, RequestStatus } from "./types/index.js";
+import type { DiscoverResult } from "./types/index.js";
 import { TMDB_IMAGE_BASE } from "./constants.js";
 
 export function getMediaStatusText(status: number): string {
@@ -43,10 +44,7 @@ function getPosterTag(posterPath: string | null | undefined): string {
   return posterPath ? `\n[POSTER:${TMDB_IMAGE_BASE}${posterPath}]` : "";
 }
 
-function truncateOverview(
-  overview: string | undefined,
-  maxLength: number = 200
-): string {
+function truncateOverview(overview: string | undefined, maxLength = 200): string {
   if (!overview) {
     return "No overview available.";
   }
@@ -54,18 +52,6 @@ function truncateOverview(
     return overview;
   }
   return overview.slice(0, maxLength) + "...";
-}
-
-export interface DiscoverResult {
-  id: number;
-  mediaType?: "movie" | "tv" | "person";
-  title?: string;
-  name?: string;
-  releaseDate?: string;
-  firstAirDate?: string;
-  overview: string;
-  posterPath?: string | null;
-  voteAverage: number;
 }
 
 export interface FormatMediaResultOptions {

@@ -578,21 +578,26 @@ async function handleListRequests(filter?: string): Promise<string> {
   return `${filterValue.charAt(0).toUpperCase() + filterValue.slice(1)} requests (${shown}${total > shown ? ` of ${total}` : ""}):\n\n${formatted}`;
 }
 
+function formatRequestError(error: unknown, requestId: number, action: string): string {
+  const message = formatErrorMessage(error);
+  if (message.includes("403")) {
+    return "Permission denied. The API key doesn't have MANAGE_REQUESTS permission.";
+  }
+  if (message.includes("404")) {
+    return `Request #${requestId} not found. Use list_requests to see available requests.`;
+  }
+  return `Error ${action} request: ${message}`;
+}
+
 async function handleApproveRequest(requestId: number): Promise<string> {
   try {
     const response = await seerr.approveRequest(requestId);
     const title = response.media.title || response.media.name || `TMDB ${response.media.tmdbId}`;
     const type = response.type === "movie" ? "Movie" : "TV Show";
-    return `Approved request #${requestId}!\n${type}: ${title}\nThe request has been sent to ${response.type === "movie" ? "Radarr" : "Sonarr"} for processing.`;
+    const processor = response.type === "movie" ? "Radarr" : "Sonarr";
+    return `Approved request #${requestId}!\n${type}: ${title}\nThe request has been sent to ${processor} for processing.`;
   } catch (error) {
-    const message = formatErrorMessage(error);
-    if (message.includes("403")) {
-      return "Permission denied. The API key doesn't have MANAGE_REQUESTS permission.";
-    }
-    if (message.includes("404")) {
-      return `Request #${requestId} not found. Use list_requests to see available requests.`;
-    }
-    return `Error approving request: ${message}`;
+    return formatRequestError(error, requestId, "approving");
   }
 }
 
@@ -603,14 +608,7 @@ async function handleDeclineRequest(requestId: number): Promise<string> {
     const type = response.type === "movie" ? "Movie" : "TV Show";
     return `Declined request #${requestId}.\n${type}: ${title}\nThe requester will be notified.`;
   } catch (error) {
-    const message = formatErrorMessage(error);
-    if (message.includes("403")) {
-      return "Permission denied. The API key doesn't have MANAGE_REQUESTS permission.";
-    }
-    if (message.includes("404")) {
-      return `Request #${requestId} not found. Use list_requests to see available requests.`;
-    }
-    return `Error declining request: ${message}`;
+    return formatRequestError(error, requestId, "declining");
   }
 }
 
@@ -652,6 +650,14 @@ async function handleDiscoverUpcoming(mediaType: "movie" | "tv"): Promise<string
   return `Upcoming ${typeLabel}:\n\n${sections.join("\n\n---\n\n")}`;
 }
 
+function buildFilterDescription(input: Record<string, unknown>): string {
+  const filters: string[] = [];
+  if (input.year) filters.push(`from ${input.year}`);
+  if (input.genre) filters.push(`${input.genre}`);
+  if (input.minRating) filters.push(`rated ${input.minRating}+`);
+  return filters.length > 0 ? ` (${filters.join(", ")})` : "";
+}
+
 async function handleDiscoverMovies(input: Record<string, unknown>): Promise<string> {
   const sortByMap: Record<string, string> = {
     popularity: "popularity.desc",
@@ -674,14 +680,8 @@ async function handleDiscoverMovies(input: Record<string, unknown>): Promise<str
   }
 
   const results = response.results.slice(0, 10);
-  const filters: string[] = [];
-  if (input.year) filters.push(`from ${input.year}`);
-  if (genre) filters.push(`${genre}`);
-  if (input.minRating) filters.push(`rated ${input.minRating}+`);
-  const filterDesc = filters.length > 0 ? ` (${filters.join(", ")})` : "";
-
   const sections = results.map((r, i) => formatMediaResult(r, i, "movie"));
-  return `Top movies${filterDesc}:\n\n${sections.join("\n\n---\n\n")}`;
+  return `Top movies${buildFilterDescription(input)}:\n\n${sections.join("\n\n---\n\n")}`;
 }
 
 async function handleDiscoverTv(input: Record<string, unknown>): Promise<string> {
@@ -706,14 +706,8 @@ async function handleDiscoverTv(input: Record<string, unknown>): Promise<string>
   }
 
   const results = response.results.slice(0, 10);
-  const filters: string[] = [];
-  if (input.year) filters.push(`from ${input.year}`);
-  if (genre) filters.push(`${genre}`);
-  if (input.minRating) filters.push(`rated ${input.minRating}+`);
-  const filterDesc = filters.length > 0 ? ` (${filters.join(", ")})` : "";
-
   const sections = results.map((r, i) => formatMediaResult(r, i, "tv"));
-  return `Top TV shows${filterDesc}:\n\n${sections.join("\n\n---\n\n")}`;
+  return `Top TV shows${buildFilterDescription(input)}:\n\n${sections.join("\n\n---\n\n")}`;
 }
 
 async function handleGetSimilar(
