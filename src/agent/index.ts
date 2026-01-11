@@ -87,7 +87,8 @@ DO NOT offer to request media that is Pending, Requested, or Available.
 - For "latest season", get numberOfSeasons from details and request only that one
 - Keep responses concise - Discord has a 2000 character limit
 - Never request 4K versions
-- Be direct and factual - avoid filler phrases like "You're absolutely right" or "Great question"`;
+- Be direct and factual - avoid filler phrases like "You're absolutely right" or "Great question"
+- Never use emojis in responses`;
 
 // Tool definitions
 const tools: Anthropic.Tool[] = [
