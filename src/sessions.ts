@@ -1,33 +1,32 @@
+import Anthropic from "@anthropic-ai/sdk";
+
 interface Session {
-  sessionId: string;
-  lastUsed: number;
+  messages: Anthropic.MessageParam[];
+  lastActivity: number;
 }
 
-// Session TTL: 30 minutes of inactivity
-const SESSION_TTL = 30 * 60 * 1000;
+const SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
 class SessionManager {
   private sessions = new Map<string, Session>();
 
-  get(userId: string): string | undefined {
+  get(userId: string): Anthropic.MessageParam[] | undefined {
     const session = this.sessions.get(userId);
     if (!session) return undefined;
 
-    // Check if session expired
-    if (Date.now() - session.lastUsed > SESSION_TTL) {
+    // Check if session has expired
+    if (Date.now() - session.lastActivity > SESSION_TTL_MS) {
       this.sessions.delete(userId);
       return undefined;
     }
 
-    // Update last used time
-    session.lastUsed = Date.now();
-    return session.sessionId;
+    return session.messages;
   }
 
-  set(userId: string, sessionId: string): void {
+  set(userId: string, messages: Anthropic.MessageParam[]): void {
     this.sessions.set(userId, {
-      sessionId,
-      lastUsed: Date.now(),
+      messages,
+      lastActivity: Date.now(),
     });
   }
 
@@ -35,11 +34,11 @@ class SessionManager {
     this.sessions.delete(userId);
   }
 
-  // Clean up expired sessions periodically
+  // Cleanup expired sessions periodically
   cleanup(): void {
     const now = Date.now();
     for (const [userId, session] of this.sessions) {
-      if (now - session.lastUsed > SESSION_TTL) {
+      if (now - session.lastActivity > SESSION_TTL_MS) {
         this.sessions.delete(userId);
       }
     }
@@ -48,5 +47,5 @@ class SessionManager {
 
 export const sessionManager = new SessionManager();
 
-// Run cleanup every 10 minutes
-setInterval(() => sessionManager.cleanup(), 10 * 60 * 1000);
+// Run cleanup every 5 minutes
+setInterval(() => sessionManager.cleanup(), 5 * 60 * 1000);

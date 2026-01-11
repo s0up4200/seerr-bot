@@ -133,19 +133,17 @@ client.on("messageCreate", async (message: Message) => {
       return;
     }
 
-    // Get existing session for this user
-    const existingSessionId = sessionManager.get(message.author.id);
+    // Get existing conversation for this user
+    const existingMessages = sessionManager.get(message.author.id);
 
-    // Process with Claude Agent
-    const { result: response, sessionId } = await processMediaRequest(
+    // Process with Claude
+    const { result: response, messages: newMessages } = await processMediaRequest(
       content,
-      existingSessionId
+      existingMessages
     );
 
-    // Store the session ID for future messages
-    if (sessionId) {
-      sessionManager.set(message.author.id, sessionId);
-    }
+    // Store the conversation for future messages
+    sessionManager.set(message.author.id, newMessages);
 
     // Clear typing interval
     clearInterval(typingInterval);
