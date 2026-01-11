@@ -10,6 +10,8 @@ import { discoverTrendingTool } from "./tools/discoverTrending.js";
 import { discoverUpcomingTool } from "./tools/discoverUpcoming.js";
 import { discoverMoviesTool } from "./tools/discoverMovies.js";
 import { discoverTvTool } from "./tools/discoverTv.js";
+import { getSimilarTool } from "./tools/getSimilar.js";
+import { getRatingsTool } from "./tools/getRatings.js";
 
 export const seerrMcpServer = createSdkMcpServer({
   name: "seerr-tools",
@@ -26,5 +28,7 @@ export const seerrMcpServer = createSdkMcpServer({
     discoverUpcomingTool,
     discoverMoviesTool,
     discoverTvTool,
+    getSimilarTool,
+    getRatingsTool,
   ],
 });

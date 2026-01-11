@@ -10,6 +10,8 @@ import type {
   DiscoverResponse,
   DiscoverMovieOptions,
   DiscoverTvOptions,
+  RatingsResponse,
+  RTRating,
 } from "../types/index.js";
 
 class SeerrService {
@@ -160,6 +162,28 @@ class SeerrService {
     return this.request<DiscoverResponse>(
       `/api/v1/discover/tv${query ? `?${query}` : ""}`
     );
+  }
+
+  // Similar media
+
+  async getSimilarMovies(tmdbId: number): Promise<DiscoverResponse> {
+    return this.request<DiscoverResponse>(`/api/v1/movie/${tmdbId}/similar`);
+  }
+
+  async getSimilarTv(tmdbId: number): Promise<DiscoverResponse> {
+    return this.request<DiscoverResponse>(`/api/v1/tv/${tmdbId}/similar`);
+  }
+
+  // Ratings
+
+  async getMovieRatings(tmdbId: number): Promise<RatingsResponse> {
+    return this.request<RatingsResponse>(
+      `/api/v1/movie/${tmdbId}/ratingscombined`
+    );
+  }
+
+  async getTvRatings(tmdbId: number): Promise<RTRating> {
+    return this.request<RTRating>(`/api/v1/tv/${tmdbId}/ratings`);
   }
 }
 

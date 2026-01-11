@@ -250,3 +250,25 @@ export interface DiscoverTvOptions {
   genre?: number;
   minRating?: number;
 }
+
+// Ratings Types
+
+export interface RTRating {
+  title?: string;
+  url?: string;
+  criticsScore?: number;
+  criticsRating?: string;
+  audienceScore?: number;
+  audienceRating?: string;
+}
+
+export interface IMDBRating {
+  title?: string;
+  url?: string;
+  criticsScore?: number;
+}
+
+export interface RatingsResponse {
+  rt?: RTRating;
+  imdb?: IMDBRating;
+}

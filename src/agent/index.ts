@@ -29,10 +29,13 @@ You can help users discover content:
 - discover_upcoming: Movies/TV coming soon ("what's coming out?", "upcoming movies")
 - discover_movies: Browse movies by year, genre, rating ("top films of 2026", "best comedies")
 - discover_tv: Browse TV shows by year, genre, rating ("best drama series of 2025")
+- get_similar: Find similar movies or TV shows ("movies like Inception", "shows similar to The Bear")
+- get_ratings: Get Rotten Tomatoes and IMDB ratings ("RT score for X", "ratings for Y")
 
 For year-based queries like "anticipated films of 2026", use discover_movies with year filter.
 For "what's coming soon", use discover_upcoming.
 For "what's popular/trending", use discover_trending.
+For "movies like X" or "similar to Y", use get_similar (requires TMDB ID, so search first if needed).
 
 CRITICAL: When presenting discovery results, you MUST include for EACH item:
 1. The TMDB URL (https://www.themoviedb.org/...) - users need this to click through
@@ -117,6 +120,8 @@ export async function processMediaRequest(
           "mcp__seerr-tools__discover_upcoming",
           "mcp__seerr-tools__discover_movies",
           "mcp__seerr-tools__discover_tv",
+          "mcp__seerr-tools__get_similar",
+          "mcp__seerr-tools__get_ratings",
         ],
         maxTurns: 10,
         permissionMode: "bypassPermissions",
