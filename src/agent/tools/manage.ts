@@ -52,7 +52,7 @@ export function createListRequestsTool(deps: { seerr: SeerrDeps }) {
     run: async ({ filter }) => {
       try {
         const filterValue = (filter || "pending") as RequestFilter;
-        const response = await deps.seerr.listRequests(filterValue);
+        const response = await deps.seerr.listRequests(filterValue, 20);
 
         if (response.results.length === 0) {
           return `No ${filterValue} requests found.`;

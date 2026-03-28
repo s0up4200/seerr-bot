@@ -30,47 +30,51 @@ export function createSearchMediaTool(deps: { seerr: SeerrDeps }) {
     description: "Search Seerr for movies or TV shows by title. Returns a list of matching media with their TMDB IDs. Automatically handles year in query.",
     inputSchema,
     run: async ({ query }) => {
-      const { title, year: targetYear } = parseYearFromQuery(query);
-      const response = await deps.seerr.search(title);
+      try {
+        const { title, year: targetYear } = parseYearFromQuery(query);
+        const response = await deps.seerr.search(title);
 
-      if (response.results.length === 0) {
-        return `No results found for "${title}". Try a different search term.`;
+        if (response.results.length === 0) {
+          return `No results found for "${title}". Try a different search term.`;
+        }
+
+        let mediaResults = response.results.filter(
+          (r) => r.mediaType === "movie" || r.mediaType === "tv"
+        );
+
+        if (targetYear) {
+          const matchingYear = mediaResults.filter((r) => {
+            const resultYear = (r.releaseDate || r.firstAirDate || "").slice(0, 4);
+            return resultYear === targetYear;
+          });
+          const otherResults = mediaResults.filter((r) => {
+            const resultYear = (r.releaseDate || r.firstAirDate || "").slice(0, 4);
+            return resultYear !== targetYear;
+          });
+          mediaResults = [...matchingYear, ...otherResults];
+        }
+
+        mediaResults = mediaResults.slice(0, 10);
+
+        const formatted = mediaResults
+          .map((r, i) => {
+            const resultTitle = r.title || r.name || "Unknown";
+            const resultYear = (r.releaseDate || r.firstAirDate || "").slice(0, 4);
+            const type = r.mediaType === "movie" ? "Movie" : "TV";
+            const tmdbUrl = `https://www.themoviedb.org/${r.mediaType}/${r.id}`;
+            return `${i + 1}. ${resultTitle} (${resultYear}) - ${type} - TMDB:${r.id} - ${tmdbUrl}`;
+          })
+          .join("\n");
+
+        const firstPoster = mediaResults[0]?.posterPath
+          ? `\n[POSTER:${TMDB_IMAGE_BASE}${mediaResults[0].posterPath}]`
+          : "";
+
+        const yearNote = targetYear ? ` (prioritizing ${targetYear})` : "";
+        return `Found ${response.totalResults} results${yearNote}. Top matches:\n\n${formatted}${firstPoster}`;
+      } catch (error) {
+        return `Error: ${error instanceof Error ? error.message : "Unknown error"}`;
       }
-
-      let mediaResults = response.results.filter(
-        (r) => r.mediaType === "movie" || r.mediaType === "tv"
-      );
-
-      if (targetYear) {
-        const matchingYear = mediaResults.filter((r) => {
-          const resultYear = (r.releaseDate || r.firstAirDate || "").slice(0, 4);
-          return resultYear === targetYear;
-        });
-        const otherResults = mediaResults.filter((r) => {
-          const resultYear = (r.releaseDate || r.firstAirDate || "").slice(0, 4);
-          return resultYear !== targetYear;
-        });
-        mediaResults = [...matchingYear, ...otherResults];
-      }
-
-      mediaResults = mediaResults.slice(0, 10);
-
-      const formatted = mediaResults
-        .map((r, i) => {
-          const resultTitle = r.title || r.name || "Unknown";
-          const resultYear = (r.releaseDate || r.firstAirDate || "").slice(0, 4);
-          const type = r.mediaType === "movie" ? "Movie" : "TV";
-          const tmdbUrl = `https://www.themoviedb.org/${r.mediaType}/${r.id}`;
-          return `${i + 1}. ${resultTitle} (${resultYear}) - ${type} - TMDB:${r.id} - ${tmdbUrl}`;
-        })
-        .join("\n");
-
-      const firstPoster = mediaResults[0]?.posterPath
-        ? `\n[POSTER:${TMDB_IMAGE_BASE}${mediaResults[0].posterPath}]`
-        : "";
-
-      const yearNote = targetYear ? ` (prioritizing ${targetYear})` : "";
-      return `Found ${response.totalResults} results${yearNote}. Top matches:\n\n${formatted}${firstPoster}`;
     },
   });
 }

@@ -108,6 +108,10 @@ export function createDiscoverMoviesTool(deps: { seerr: SeerrDeps }) {
         };
 
         const genreId = genre ? MOVIE_GENRE_MAP[genre.toLowerCase()] : undefined;
+        if (genre && !genreId) {
+          const available = Object.keys(MOVIE_GENRE_MAP).join(", ");
+          return `Unknown genre "${genre}". Available genres: ${available}`;
+        }
 
         const response = await deps.seerr.discoverMovies({
           year,
@@ -152,6 +156,10 @@ export function createDiscoverTvTool(deps: { seerr: SeerrDeps }) {
         };
 
         const genreId = genre ? TV_GENRE_MAP[genre.toLowerCase()] : undefined;
+        if (genre && !genreId) {
+          const available = Object.keys(TV_GENRE_MAP).join(", ");
+          return `Unknown genre "${genre}". Available genres: ${available}`;
+        }
 
         const response = await deps.seerr.discoverTv({
           year,

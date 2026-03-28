@@ -16,6 +16,7 @@ export function createGetMediaDetailsTool(deps: { seerr: SeerrDeps }) {
     description: "Get detailed information about a movie or TV show including IMDB ID, status, and seasons (for TV shows).",
     inputSchema,
     run: async ({ tmdbId, mediaType }) => {
+      try {
       if (mediaType === "movie") {
         const movie = await deps.seerr.getMovieDetails(tmdbId);
         const status = movie.mediaInfo
@@ -69,6 +70,9 @@ TMDB: ${tmdbUrl}${imdbUrl ? `\nIMDB: ${imdbUrl}` : ""}
 ${seasonList}
 
 Overview: ${tv.overview || "No overview available."}${posterTag}`;
+      }
+      } catch (error) {
+        return `Error: ${error instanceof Error ? error.message : "Unknown error"}`;
       }
     },
   });
