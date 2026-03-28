@@ -111,8 +111,13 @@ client.on("messageCreate", async (message: Message) => {
   // Check if bot is mentioned or if it's a DM
   const isMentioned = client.user && message.mentions.has(client.user);
   const isDM = !message.guild;
+  const isAutoRespond =
+    config.discord.autoRespondUserId &&
+    config.discord.autoRespondChannelId &&
+    message.author.id === config.discord.autoRespondUserId &&
+    message.channel.id === config.discord.autoRespondChannelId;
 
-  if (!isMentioned && !isDM) return;
+  if (!isMentioned && !isDM && !isAutoRespond) return;
 
   // Extract the request text (remove mention if present)
   let content = message.content;

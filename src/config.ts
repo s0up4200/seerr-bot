@@ -9,6 +9,8 @@ function requireEnv(name: string): string {
 export const config = {
   discord: {
     token: requireEnv("DISCORD_BOT_TOKEN"),
+    autoRespondUserId: process.env.DISCORD_AUTO_RESPOND_USER_ID,
+    autoRespondChannelId: process.env.DISCORD_AUTO_RESPOND_CHANNEL_ID,
   },
   seerr: {
     url: requireEnv("SEERR_URL"),
