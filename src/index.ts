@@ -10,6 +10,8 @@ import {
 import { config } from "./config.js";
 import { processMediaRequest } from "./agent/index.js";
 import { sessionManager } from "./sessions.js";
+import { usageTracker, calculateCost } from "./usageTracker.js";
+import { LiveMessage } from "./liveMessage.js";
 
 interface ResponseSection {
   text: string;
@@ -147,9 +149,35 @@ client.on("messageCreate", async (message: Message) => {
 
     console.log(`Processing request from ${message.author.tag}: ${content}`);
 
+    // Check for stats command
+    const lowerContent = content.toLowerCase();
+    if (lowerContent === "stats" || lowerContent === "usage") {
+      clearInterval(typingInterval);
+      const stats = usageTracker.get(message.author.id);
+      if (!stats) {
+        await message.reply("No usage stats yet. Start by making a request!");
+        return;
+      }
+      const total = stats.totalInputTokens + stats.totalOutputTokens;
+      const cost = calculateCost(
+        stats.totalInputTokens,
+        stats.totalOutputTokens
+      );
+      await message.reply(
+        `**Your Usage Stats**\n` +
+          `Requests: ${stats.requestCount.toLocaleString()}\n` +
+          `Input tokens: ${stats.totalInputTokens.toLocaleString()}\n` +
+          `Output tokens: ${stats.totalOutputTokens.toLocaleString()}\n` +
+          `Total tokens: ${total.toLocaleString()}\n` +
+          `Est. cost: $${cost.toFixed(4)}\n` +
+          `Model: ${config.anthropic.model}`
+      );
+      return;
+    }
+
     // Check for session reset commands
     const resetCommands = ["new conversation", "start over", "reset", "forget"];
-    if (resetCommands.some((cmd) => content.toLowerCase().includes(cmd))) {
+    if (resetCommands.some((cmd) => lowerContent.includes(cmd))) {
       sessionManager.clear(message.author.id);
       clearInterval(typingInterval);
       await message.reply(
@@ -161,27 +189,49 @@ client.on("messageCreate", async (message: Message) => {
     // Get existing conversation for this user
     const existingMessages = sessionManager.get(message.author.id);
 
-    // Process with Claude
-    const { result: response, messages: newMessages } = await processMediaRequest(
-      content,
-      existingMessages
-    );
+    // Set up live message for streaming
+    const liveMessage = new LiveMessage(message);
+    let typingCleared = false;
+
+    const onText = (textSnapshot: string) => {
+      // Stop typing indicator once real text starts flowing
+      if (!typingCleared) {
+        clearInterval(typingInterval);
+        typingCleared = true;
+      }
+      liveMessage.update(textSnapshot);
+    };
+
+    // Process with Claude (streaming)
+    const {
+      result: response,
+      messages: newMessages,
+      usage,
+    } = await processMediaRequest(content, existingMessages, onText);
 
     // Store the conversation for future messages
     sessionManager.set(message.author.id, newMessages);
 
-    // Clear typing interval
-    clearInterval(typingInterval);
+    // Record usage
+    usageTracker.record(message.author.id, usage.inputTokens, usage.outputTokens);
+
+    // Clear typing interval if not already cleared (e.g., no text was streamed)
+    if (!typingCleared) {
+      clearInterval(typingInterval);
+    }
 
     // Parse response into sections
     const sections = parseResponseSections(response);
 
     // Check if any section has a poster
-    const hasPosters = sections.some(s => s.posterUrl);
+    const hasPosters = sections.some((s) => s.posterUrl);
 
     if (hasPosters) {
+      // Delete the streamed message and replace with embeds
+      await liveMessage.delete();
+
       // Create embeds for each section (max 10 per message)
-      const embeds = sections.slice(0, 10).map(section => {
+      const embeds = sections.slice(0, 10).map((section) => {
         const embed = new EmbedBuilder()
           .setDescription(section.text.slice(0, 4096))
           .setColor(0x2b2d31);
@@ -195,13 +245,15 @@ client.on("messageCreate", async (message: Message) => {
 
       await message.reply({ embeds });
     } else {
-      // No posters - send as plain text, chunked if needed
-      const fullText = sections.map((s) => s.text).join("\n\n---\n\n");
-      const chunks = splitTextIntoChunks(fullText);
+      // Finalize the live message with the complete text
+      await liveMessage.finalize();
 
-      await message.reply(chunks[0]);
-      for (let i = 1; i < chunks.length; i++) {
-        if (isTextChannel) {
+      // If text exceeds Discord limit, send overflow as additional messages
+      const fullText = sections.map((s) => s.text).join("\n\n---\n\n");
+      if (fullText.length > DISCORD_MAX_LENGTH && isTextChannel) {
+        const chunks = splitTextIntoChunks(fullText);
+        // First chunk is already in the live message, send the rest
+        for (let i = 1; i < chunks.length; i++) {
           await channel.send(chunks[i]);
         }
       }
@@ -210,9 +262,13 @@ client.on("messageCreate", async (message: Message) => {
     console.log(`Responded to ${message.author.tag}`);
   } catch (error) {
     console.error("Error processing request:", error);
-    await message.reply(
-      "Sorry, I encountered an error processing your request. Please try again later."
-    );
+    try {
+      await message.reply(
+        "Sorry, I encountered an error processing your request. Please try again later."
+      );
+    } catch {
+      // Reply may fail if the live message already replied
+    }
   }
 });
 

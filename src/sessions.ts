@@ -1,7 +1,7 @@
-import Anthropic from "@anthropic-ai/sdk";
+import type { BetaMessageParam } from "@anthropic-ai/sdk/resources/beta.js";
 
 interface Session {
-  messages: Anthropic.MessageParam[];
+  messages: BetaMessageParam[];
   lastActivity: number;
 }
 
@@ -10,7 +10,7 @@ const SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes
 class SessionManager {
   private sessions = new Map<string, Session>();
 
-  get(userId: string): Anthropic.MessageParam[] | undefined {
+  get(userId: string): BetaMessageParam[] | undefined {
     const session = this.sessions.get(userId);
     if (!session) return undefined;
 
@@ -23,7 +23,7 @@ class SessionManager {
     return session.messages;
   }
 
-  set(userId: string, messages: Anthropic.MessageParam[]): void {
+  set(userId: string, messages: BetaMessageParam[]): void {
     this.sessions.set(userId, {
       messages,
       lastActivity: Date.now(),
