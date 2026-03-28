@@ -8,11 +8,13 @@ import { tools } from "./tools/index.js";
 export interface AgentResponse {
   result: string;
   messages: BetaMessageParam[];
+  usage: { inputTokens: number; outputTokens: number };
 }
 
 export async function processMediaRequest(
   userMessage: string,
-  existingMessages?: BetaMessageParam[]
+  existingMessages?: BetaMessageParam[],
+  onText?: (textSnapshot: string) => void
 ): Promise<AgentResponse> {
   const messages: BetaMessageParam[] = existingMessages
     ? [...existingMessages, { role: "user", content: userMessage }]
@@ -25,9 +27,24 @@ export async function processMediaRequest(
       system: SYSTEM_PROMPT,
       tools,
       messages,
+      stream: true,
     });
 
-    const finalMessage = await runner;
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+
+    for await (const stream of runner) {
+      if (onText) {
+        stream.on("text", (_delta, snapshot) => {
+          onText(snapshot);
+        });
+      }
+      const msg = await stream.finalMessage();
+      totalInputTokens += msg.usage.input_tokens;
+      totalOutputTokens += msg.usage.output_tokens;
+    }
+
+    const finalMessage = await runner.done();
 
     const textBlocks = finalMessage.content.filter(
       (block): block is Anthropic.Beta.Messages.BetaTextBlock =>
@@ -37,6 +54,7 @@ export async function processMediaRequest(
     return {
       result: textBlocks.map((b) => b.text).join("\n") || "No response",
       messages: [...runner.params.messages],
+      usage: { inputTokens: totalInputTokens, outputTokens: totalOutputTokens },
     };
   } catch (error) {
     console.error("Agent error:", error);
@@ -44,6 +62,7 @@ export async function processMediaRequest(
       result:
         "Sorry, I encountered an error processing your request. Please try again.",
       messages,
+      usage: { inputTokens: 0, outputTokens: 0 },
     };
   }
 }
