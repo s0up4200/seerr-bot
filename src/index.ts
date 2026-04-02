@@ -1,4 +1,7 @@
 import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
   Client,
   EmbedBuilder,
   GatewayIntentBits,
@@ -12,6 +15,8 @@ import { processMediaRequest } from "./agent/index.js";
 import { sessionManager } from "./sessions.js";
 import { usageTracker, calculateCost } from "./usageTracker.js";
 import { LiveMessage } from "./liveMessage.js";
+import { seerr } from "./services/seerr.js";
+import { getRequestStatusText } from "./utils.js";
 
 interface ResponseSection {
   text: string;
@@ -19,6 +24,13 @@ interface ResponseSection {
 }
 
 const POSTER_REGEX = /\[POSTER:(https:\/\/[^\]]+)\]/g;
+const PENDING_REQUEST_REGEX = /\[PENDING_REQUEST:(\{.*?\})\]/;
+
+interface PendingRequest {
+  tmdbId: number;
+  mediaType: "movie" | "tv";
+  seasons?: number[];
+}
 
 function parseResponseSections(text: string): ResponseSection[] {
   const posterMatches = [...text.matchAll(POSTER_REGEX)];
@@ -204,7 +216,8 @@ client.on("messageCreate", async (message: Message) => {
         clearInterval(typingInterval);
         typingCleared = true;
       }
-      liveMessage.update(textSnapshot);
+      // Strip pending request tags so they don't appear during streaming
+      liveMessage.update(textSnapshot.replace(PENDING_REQUEST_REGEX, "").trim());
     };
 
     // Process with Claude (streaming)
@@ -225,11 +238,54 @@ client.on("messageCreate", async (message: Message) => {
       clearInterval(typingInterval);
     }
 
+    // Extract and validate pending request before parsing sections
+    const pendingMatch = response.match(PENDING_REQUEST_REGEX);
+    let pendingRequest: PendingRequest | null = null;
+    if (pendingMatch) {
+      try {
+        const parsed = JSON.parse(pendingMatch[1]);
+        if (
+          typeof parsed.tmdbId === "number" &&
+          (parsed.mediaType === "movie" || parsed.mediaType === "tv") &&
+          (parsed.mediaType === "movie" ||
+            (Array.isArray(parsed.seasons) && parsed.seasons.length > 0))
+        ) {
+          pendingRequest = parsed as PendingRequest;
+        } else {
+          console.error("Invalid pending request payload:", parsed);
+        }
+      } catch {
+        console.error("Failed to parse pending request:", pendingMatch[1]);
+      }
+    }
+
+    // Strip the pending request tag from display text
+    const displayResponse = response.replace(PENDING_REQUEST_REGEX, "").trim();
+
+    // Build confirmation buttons if there's a pending request
+    let components: ActionRowBuilder<ButtonBuilder>[] = [];
+    const buttonId = pendingRequest ? crypto.randomUUID() : "";
+    if (pendingRequest) {
+      const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`confirm-${buttonId}`)
+          .setLabel("Request")
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId(`cancel-${buttonId}`)
+          .setLabel("Wrong one")
+          .setStyle(ButtonStyle.Secondary),
+      );
+      components = [row];
+    }
+
     // Parse response into sections
-    const sections = parseResponseSections(response);
+    const sections = parseResponseSections(displayResponse);
 
     // Check if any section has a poster
     const hasPosters = sections.some((s) => s.posterUrl);
+
+    let sentMessage: Message | null = null;
 
     if (hasPosters) {
       // Delete the streamed message and replace with embeds
@@ -248,10 +304,19 @@ client.on("messageCreate", async (message: Message) => {
         return embed;
       });
 
-      await message.reply({ embeds });
+      sentMessage = await message.reply({ embeds, components });
     } else {
       // Finalize the live message with the complete text
-      await liveMessage.finalize();
+      sentMessage = await liveMessage.finalize();
+
+      // Add buttons if pending request (also ensures clean display text)
+      if (sentMessage && components.length > 0) {
+        const cleanContent = displayResponse.slice(0, DISCORD_MAX_LENGTH);
+        sentMessage = await sentMessage.edit({
+          content: cleanContent,
+          components,
+        });
+      }
 
       // If text exceeds Discord limit, send overflow as additional messages
       const fullText = sections.map((s) => s.text).join("\n\n---\n\n");
@@ -262,6 +327,50 @@ client.on("messageCreate", async (message: Message) => {
           await channel.send(chunks[i]);
         }
       }
+    }
+
+    // Set up button collector for pending requests
+    if (pendingRequest && sentMessage) {
+      const pr = pendingRequest;
+      const collector = sentMessage.createMessageComponentCollector({
+        filter: (i) => i.user.id === message.author.id,
+        time: 5 * 60 * 1000,
+        max: 1,
+      });
+
+      collector.on("collect", async (interaction) => {
+        if (interaction.customId === `confirm-${buttonId}`) {
+          try {
+            const res =
+              pr.mediaType === "movie"
+                ? await seerr.requestMovie(pr.tmdbId)
+                : await seerr.requestTv(pr.tmdbId, pr.seasons!);
+            const status = getRequestStatusText(res.status);
+            await interaction.update({
+              components: [],
+            });
+            await interaction.followUp(
+              `Request submitted! (ID: ${res.id}, Status: ${status})`,
+            );
+          } catch (error) {
+            await interaction.update({ components: [] });
+            await interaction.followUp(
+              `Failed to submit request: ${error instanceof Error ? error.message : "Unknown error"}`,
+            );
+          }
+        } else {
+          await interaction.update({ components: [] });
+          await interaction.followUp(
+            "Request cancelled. Tell me what you're looking for instead!",
+          );
+        }
+      });
+
+      collector.on("end", (collected, reason) => {
+        if (reason === "time" && collected.size === 0) {
+          sentMessage?.edit({ components: [] }).catch(() => {});
+        }
+      });
     }
 
     console.log(`Responded to ${message.author.tag}`);

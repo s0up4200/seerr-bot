@@ -26,14 +26,15 @@ This is a Discord bot that uses the Anthropic SDK (`@anthropic-ai/sdk`) to handl
 
 ### Key Patterns
 - Tools use `betaZodTool()` from `@anthropic-ai/sdk/helpers/beta/zod` with Zod v4 schemas for type-safe inputs
-- Each tool file exports a factory function (`createXTool({ seerr })`) for testability and a default instance
+- Most tool files export a factory function (`createXTool({ seerr })`) for testability and a default instance (some tools have no deps)
 - The `toolRunner()` handles the entire tool-use loop automatically (no manual while loop)
 - Tools return `[POSTER:url]` tags that the Discord handler parses to display images as embed thumbnails
+- The `request_media` tool returns `[PENDING_REQUEST:json]` tags — the Discord handler parses these to show confirm/cancel buttons before submitting to Seerr
 - Session management tracks conversation state per Discord user via `BetaMessageParam[]`
 
 ### Adding New Tools
 1. Create tool file in `src/agent/tools/` using `betaZodTool()` with a Zod schema and `run()` handler
-2. Export a factory function for testing and a default instance using the real service
+2. Export a factory function (with service deps if needed) and a default instance
 3. Add the tool to the `tools` array in `src/agent/tools/index.ts`
 4. Update the system prompt in `src/agent/prompt.ts` if the agent needs to know when/how to use it
 5. Add tests in `src/__tests__/tools/`

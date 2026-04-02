@@ -1,8 +1,5 @@
 import { betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
-import { seerr } from "../../services/seerr.js";
-import { getRequestStatusText } from "../../utils.js";
-import type { SeerrDeps } from "./types.js";
 
 const inputSchema = z.object({
   tmdbId: z.number().describe("The TMDB ID of the media"),
@@ -10,38 +7,32 @@ const inputSchema = z.object({
   seasons: z.array(z.number()).optional().describe("For TV: array of season numbers to request"),
 });
 
-export function createRequestMediaTool(deps: { seerr: SeerrDeps }) {
+export function createRequestMediaTool() {
   return betaZodTool({
     name: "request_media",
-    description: "Submit a media request to Seerr. For movies, no seasons needed. For TV shows, you MUST specify which seasons.",
+    description:
+      "Prepare a media request for user confirmation. Returns a pending request tag that the Discord interface presents with confirm/cancel buttons. Does NOT submit to Seerr directly.",
     inputSchema,
     run: async ({ tmdbId, mediaType, seasons }) => {
-      try {
-        if (mediaType === "movie") {
-          const response = await deps.seerr.requestMovie(tmdbId);
-          const status = getRequestStatusText(response.status);
-          return `Movie request submitted successfully!
-Request ID: ${response.id}
-Status: ${status}
-Created: ${new Date(response.createdAt).toLocaleString()}`;
-        } else {
-          if (!seasons || seasons.length === 0) {
-            return "Error: For TV shows, you must specify which seasons to request. Use get_media_details first to see available seasons.";
-          }
-          const response = await deps.seerr.requestTv(tmdbId, seasons);
-          const status = getRequestStatusText(response.status);
-          const seasonsList = seasons.sort((a, b) => a - b).join(", ");
-          return `TV show request submitted successfully!
-Request ID: ${response.id}
-Seasons requested: ${seasonsList}
-Status: ${status}
-Created: ${new Date(response.createdAt).toLocaleString()}`;
-        }
-      } catch (error) {
-        return `Error: ${error instanceof Error ? error.message : "Unknown error"}`;
+      if (mediaType === "tv" && (!seasons || seasons.length === 0)) {
+        return "Error: For TV shows, you must specify which seasons to request. Use get_media_details first to see available seasons.";
       }
+
+      const payload: Record<string, unknown> = { tmdbId, mediaType };
+      if (seasons) {
+        payload.seasons = seasons.sort((a, b) => a - b);
+      }
+
+      const seasonsList =
+        mediaType === "tv" && seasons
+          ? ` (Seasons ${seasons.sort((a, b) => a - b).join(", ")})`
+          : "";
+
+      return `Request prepared for confirmation.${seasonsList}
+
+[PENDING_REQUEST:${JSON.stringify(payload)}]`;
     },
   });
 }
 
-export const requestMediaTool = createRequestMediaTool({ seerr });
+export const requestMediaTool = createRequestMediaTool();
