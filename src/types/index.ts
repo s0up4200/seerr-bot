@@ -77,6 +77,11 @@ export interface MediaInfo {
   status: number;
   status4k: number;
   mediaType: "movie" | "tv";
+  seasons?: {
+    seasonNumber: number;
+    status: number;
+    status4k: number;
+  }[];
 }
 
 export interface RequestResponse {

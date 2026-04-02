@@ -16,7 +16,7 @@ import { sessionManager } from "./sessions.js";
 import { usageTracker, calculateCost } from "./usageTracker.js";
 import { LiveMessage } from "./liveMessage.js";
 import { seerr } from "./services/seerr.js";
-import { getRequestStatusText } from "./utils.js";
+import { formatErrorMessage, getRequestStatusText } from "./utils.js";
 
 interface ResponseSection {
   text: string;
@@ -39,17 +39,35 @@ function extractPendingRequest(
     const msg = messages[i];
     if (msg.role !== "assistant" || !Array.isArray(msg.content)) continue;
     for (const block of msg.content) {
-      if (block.type === "tool_use" && block.name === "request_media") {
-        const input = block.input as Record<string, unknown>;
+      if (block.type !== "tool_use" || block.name !== "request_media") continue;
+      const input = block.input as Record<string, unknown>;
+      if (
+        typeof input.tmdbId !== "number" ||
+        (input.mediaType !== "movie" && input.mediaType !== "tv")
+      ) {
+        continue;
+      }
+      if (input.mediaType === "tv" && (!Array.isArray(input.seasons) || input.seasons.length === 0)) {
+        continue;
+      }
+
+      // Verify the tool result confirms the request was prepared, not rejected
+      const resultMsg = messages[i + 1];
+      if (resultMsg?.role === "user" && Array.isArray(resultMsg.content)) {
+        const toolResult = resultMsg.content.find(
+          (b) => b.type === "tool_result" && "tool_use_id" in b && b.tool_use_id === block.id,
+        );
         if (
-          typeof input.tmdbId === "number" &&
-          (input.mediaType === "movie" || input.mediaType === "tv") &&
-          (input.mediaType === "movie" ||
-            (Array.isArray(input.seasons) && input.seasons.length > 0))
+          toolResult &&
+          "content" in toolResult &&
+          typeof toolResult.content === "string" &&
+          !toolResult.content.includes("Request prepared for user confirmation")
         ) {
-          return input as unknown as PendingRequest;
+          continue;
         }
       }
+
+      return input as unknown as PendingRequest;
     }
   }
   return null;
@@ -264,21 +282,21 @@ client.on("messageCreate", async (message: Message) => {
     const pendingRequest = extractPendingRequest(newMessages);
 
     // Build confirmation buttons if there's a pending request
-    let components: ActionRowBuilder<ButtonBuilder>[] = [];
     const buttonId = pendingRequest ? crypto.randomUUID() : "";
-    if (pendingRequest) {
-      const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-        new ButtonBuilder()
-          .setCustomId(`confirm-${buttonId}`)
-          .setLabel("Request")
-          .setStyle(ButtonStyle.Success),
-        new ButtonBuilder()
-          .setCustomId(`cancel-${buttonId}`)
-          .setLabel("Wrong one")
-          .setStyle(ButtonStyle.Secondary),
-      );
-      components = [row];
-    }
+    const components = pendingRequest
+      ? [
+          new ActionRowBuilder<ButtonBuilder>().addComponents(
+            new ButtonBuilder()
+              .setCustomId(`confirm-${buttonId}`)
+              .setLabel("Request")
+              .setStyle(ButtonStyle.Success),
+            new ButtonBuilder()
+              .setCustomId(`cancel-${buttonId}`)
+              .setLabel("Wrong one")
+              .setStyle(ButtonStyle.Secondary),
+          ),
+        ]
+      : [];
 
     // Parse response into sections
     const sections = parseResponseSections(response);
@@ -340,6 +358,8 @@ client.on("messageCreate", async (message: Message) => {
       });
 
       collector.on("collect", async (interaction) => {
+        await interaction.update({ components: [] });
+
         if (interaction.customId === `confirm-${buttonId}`) {
           try {
             const res =
@@ -347,20 +367,15 @@ client.on("messageCreate", async (message: Message) => {
                 ? await seerr.requestMovie(pr.tmdbId)
                 : await seerr.requestTv(pr.tmdbId, pr.seasons!);
             const status = getRequestStatusText(res.status);
-            await interaction.update({
-              components: [],
-            });
             await interaction.followUp(
               `Request submitted! (ID: ${res.id}, Status: ${status})`,
             );
           } catch (error) {
-            await interaction.update({ components: [] });
             await interaction.followUp(
-              `Failed to submit request: ${error instanceof Error ? error.message : "Unknown error"}`,
+              `Failed to submit request: ${formatErrorMessage(error)}`,
             );
           }
         } else {
-          await interaction.update({ components: [] });
           await interaction.followUp(
             "Request cancelled. Tell me what you're looking for instead!",
           );
