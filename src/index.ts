@@ -24,12 +24,35 @@ interface ResponseSection {
 }
 
 const POSTER_REGEX = /\[POSTER:(https:\/\/[^\]]+)\]/g;
-const PENDING_REQUEST_REGEX = /\[PENDING_REQUEST:(\{.*?\})\]/;
 
 interface PendingRequest {
   tmdbId: number;
   mediaType: "movie" | "tv";
   seasons?: number[];
+}
+
+function extractPendingRequest(
+  messages: import("@anthropic-ai/sdk/resources/beta.js").BetaMessageParam[],
+): PendingRequest | null {
+  // Scan messages in reverse to find the last request_media tool call
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (msg.role !== "assistant" || !Array.isArray(msg.content)) continue;
+    for (const block of msg.content) {
+      if (block.type === "tool_use" && block.name === "request_media") {
+        const input = block.input as Record<string, unknown>;
+        if (
+          typeof input.tmdbId === "number" &&
+          (input.mediaType === "movie" || input.mediaType === "tv") &&
+          (input.mediaType === "movie" ||
+            (Array.isArray(input.seasons) && input.seasons.length > 0))
+        ) {
+          return input as unknown as PendingRequest;
+        }
+      }
+    }
+  }
+  return null;
 }
 
 function parseResponseSections(text: string): ResponseSection[] {
@@ -216,8 +239,7 @@ client.on("messageCreate", async (message: Message) => {
         clearInterval(typingInterval);
         typingCleared = true;
       }
-      // Strip pending request tags so they don't appear during streaming
-      liveMessage.update(textSnapshot.replace(PENDING_REQUEST_REGEX, "").trim());
+      liveMessage.update(textSnapshot);
     };
 
     // Process with Claude (streaming)
@@ -238,29 +260,8 @@ client.on("messageCreate", async (message: Message) => {
       clearInterval(typingInterval);
     }
 
-    // Extract and validate pending request before parsing sections
-    const pendingMatch = response.match(PENDING_REQUEST_REGEX);
-    let pendingRequest: PendingRequest | null = null;
-    if (pendingMatch) {
-      try {
-        const parsed = JSON.parse(pendingMatch[1]);
-        if (
-          typeof parsed.tmdbId === "number" &&
-          (parsed.mediaType === "movie" || parsed.mediaType === "tv") &&
-          (parsed.mediaType === "movie" ||
-            (Array.isArray(parsed.seasons) && parsed.seasons.length > 0))
-        ) {
-          pendingRequest = parsed as PendingRequest;
-        } else {
-          console.error("Invalid pending request payload:", parsed);
-        }
-      } catch {
-        console.error("Failed to parse pending request:", pendingMatch[1]);
-      }
-    }
-
-    // Strip the pending request tag from display text
-    const displayResponse = response.replace(PENDING_REQUEST_REGEX, "").trim();
+    // Extract pending request from tool call history (not from LLM text)
+    const pendingRequest = extractPendingRequest(newMessages);
 
     // Build confirmation buttons if there's a pending request
     let components: ActionRowBuilder<ButtonBuilder>[] = [];
@@ -280,7 +281,7 @@ client.on("messageCreate", async (message: Message) => {
     }
 
     // Parse response into sections
-    const sections = parseResponseSections(displayResponse);
+    const sections = parseResponseSections(response);
 
     // Check if any section has a poster
     const hasPosters = sections.some((s) => s.posterUrl);
@@ -311,7 +312,7 @@ client.on("messageCreate", async (message: Message) => {
 
       // Add buttons if pending request (also ensures clean display text)
       if (sentMessage && components.length > 0) {
-        const cleanContent = displayResponse.slice(0, DISCORD_MAX_LENGTH);
+        const cleanContent = response.slice(0, DISCORD_MAX_LENGTH);
         sentMessage = await sentMessage.edit({
           content: cleanContent,
           components,
