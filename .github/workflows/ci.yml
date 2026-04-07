@@ -9,3 +9,9 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
       - run: bun test
+        env:
+          DISCORD_BOT_TOKEN: test
+          SEERR_URL: http://localhost
+          SEERR_API_KEY: test
+          OMDB_API_KEY: test
+          ANTHROPIC_API_KEY: test
