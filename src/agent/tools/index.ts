@@ -16,12 +16,14 @@ import {
 import { getSimilarTool } from "./similar.js";
 import { getRatingsTool } from "./ratings.js";
 
-export const userTools = [
+export const tools = [
   searchMediaTool,
   getMediaDetailsTool,
   verifyImdbTool,
   requestMediaTool,
   listRequestsTool,
+  approveRequestTool,
+  declineRequestTool,
   discoverTrendingTool,
   discoverUpcomingTool,
   discoverMoviesTool,
@@ -29,5 +31,3 @@ export const userTools = [
   getSimilarTool,
   getRatingsTool,
 ];
-
-export const tools = [...userTools, approveRequestTool, declineRequestTool];

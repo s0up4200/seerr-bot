@@ -3,7 +3,7 @@ import type { BetaMessageParam } from "@anthropic-ai/sdk/resources/beta.js";
 import { anthropic } from "./client.js";
 import { config } from "../config.js";
 import { SYSTEM_PROMPT } from "./prompt.js";
-import { tools, userTools } from "./tools/index.js";
+import { tools } from "./tools/index.js";
 
 export interface AgentResponse {
   result: string;
@@ -13,8 +13,7 @@ export interface AgentResponse {
 
 export async function processMediaRequest(
   userMessage: string,
-  existingMessages: BetaMessageParam[] | undefined,
-  isAdmin: boolean
+  existingMessages?: BetaMessageParam[]
 ): Promise<AgentResponse> {
   const messages: BetaMessageParam[] = existingMessages
     ? [...existingMessages, { role: "user", content: userMessage }]
@@ -25,7 +24,7 @@ export async function processMediaRequest(
       model: config.anthropic.model,
       max_tokens: 2048,
       system: SYSTEM_PROMPT,
-      tools: isAdmin ? tools : userTools,
+      tools,
       messages,
     });
 

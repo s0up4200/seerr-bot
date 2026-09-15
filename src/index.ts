@@ -171,6 +171,9 @@ client.on("messageCreate", async (message: Message) => {
 
   if (!isMentioned && !isDM && !isAutoRespond) return;
 
+  const { allowedUserIds } = config.discord;
+  if (allowedUserIds.length > 0 && !allowedUserIds.includes(message.author.id)) return;
+
   // Extract the request text (remove mention if present)
   let content = message.content;
   if (client.user) {
@@ -244,15 +247,12 @@ client.on("messageCreate", async (message: Message) => {
 
     // Get existing conversation for this user
     const existingMessages = sessionManager.get(message.author.id);
-    const isAdmin =
-      config.discord.adminUserIds.length === 0 ||
-      config.discord.adminUserIds.includes(message.author.id);
 
     const {
       result: response,
       messages: newMessages,
       usage,
-    } = await processMediaRequest(content, existingMessages, isAdmin);
+    } = await processMediaRequest(content, existingMessages);
 
     // Store the conversation for future messages
     sessionManager.set(message.author.id, newMessages);

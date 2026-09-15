@@ -23,7 +23,7 @@ Extra commands:
 - `stats` or `usage` shows the user's token usage and estimated cost.
 - `reset`, `start over`, `forget` or `new conversation` clears the user's conversation. The bot also drops a conversation after 30 minutes without messages.
 
-By default anyone who can message the bot can approve and decline Seerr requests. Set `DISCORD_ADMIN_USER_IDS` to limit that to named users. To limit who can talk to the bot, set Discord channel permissions on the bot role.
+Every message the bot answers costs Anthropic API tokens, and any user who can talk to the bot can also approve and decline Seerr requests. Set `DISCORD_ALLOWED_USER_IDS` to limit the bot to named users. The bot ignores messages from everyone else, including DMs.
 
 ## Requirements
 
@@ -63,7 +63,7 @@ The bot reads `.env` from its working directory. Copy `.env.example` and fill in
 | `CLAUDE_MODEL` | no | Claude model ID. Defaults to `claude-haiku-4-5-20251001`. |
 | `DISCORD_AUTO_RESPOND_USER_ID` | no | Discord user ID the bot answers without a mention. |
 | `DISCORD_AUTO_RESPOND_CHANNEL_ID` | no | Channel ID where that user gets answers without a mention. |
-| `DISCORD_ADMIN_USER_IDS` | no | Comma-separated user IDs that may approve and decline requests. Empty lets every user approve and decline. Does not limit who can talk to the bot. |
+| `DISCORD_ALLOWED_USER_IDS` | no | Comma-separated Discord user IDs that may use the bot. Empty lets every user who can reach the bot use it. |
 
 Set both `DISCORD_AUTO_RESPOND_*` variables or neither. Leave them empty to require a mention everywhere.
 
