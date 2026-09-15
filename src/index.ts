@@ -14,7 +14,6 @@ import { config } from "./config.js";
 import { processMediaRequest } from "./agent/index.js";
 import { sessionManager } from "./sessions.js";
 import { usageTracker, calculateCost } from "./usageTracker.js";
-import { LiveMessage } from "./liveMessage.js";
 import { seerr } from "./services/seerr.js";
 import { formatErrorMessage, getRequestStatusText } from "./utils.js";
 
@@ -198,19 +197,19 @@ client.on("messageCreate", async (message: Message) => {
   const isTextChannel =
     channel instanceof TextChannel || channel instanceof DMChannel;
 
+  // Keep typing indicator active during processing
+  const typingInterval = setInterval(() => {
+    if (isTextChannel) channel.sendTyping().catch(() => {});
+  }, 5000);
+
   try {
-    // Keep typing indicator active during processing
     if (isTextChannel) await channel.sendTyping();
-    const typingInterval = setInterval(() => {
-      if (isTextChannel) channel.sendTyping().catch(() => {});
-    }, 5000);
 
     console.log(`Processing request from ${message.author.tag}: ${content}`);
 
     // Check for stats command
     const lowerContent = content.toLowerCase();
     if (lowerContent === "stats" || lowerContent === "usage") {
-      clearInterval(typingInterval);
       const stats = usageTracker.get(message.author.id);
       if (!stats) {
         await message.reply("No usage stats yet. Start by making a request!");
@@ -237,7 +236,6 @@ client.on("messageCreate", async (message: Message) => {
     const resetCommands = ["new conversation", "start over", "reset", "forget"];
     if (resetCommands.some((cmd) => lowerContent.includes(cmd))) {
       sessionManager.clear(message.author.id);
-      clearInterval(typingInterval);
       await message.reply(
         "Started a new conversation! What would you like to watch?"
       );
@@ -247,36 +245,17 @@ client.on("messageCreate", async (message: Message) => {
     // Get existing conversation for this user
     const existingMessages = sessionManager.get(message.author.id);
 
-    // Set up live message for streaming
-    const liveMessage = new LiveMessage(message);
-    let typingCleared = false;
-
-    const onText = (textSnapshot: string) => {
-      // Stop typing indicator once real text starts flowing
-      if (!typingCleared) {
-        clearInterval(typingInterval);
-        typingCleared = true;
-      }
-      liveMessage.update(textSnapshot);
-    };
-
-    // Process with Claude (streaming)
     const {
       result: response,
       messages: newMessages,
       usage,
-    } = await processMediaRequest(content, existingMessages, onText);
+    } = await processMediaRequest(content, existingMessages);
 
     // Store the conversation for future messages
     sessionManager.set(message.author.id, newMessages);
 
     // Record usage
     usageTracker.record(message.author.id, usage.inputTokens, usage.outputTokens);
-
-    // Clear typing interval if not already cleared (e.g., no text was streamed)
-    if (!typingCleared) {
-      clearInterval(typingInterval);
-    }
 
     // Extract pending request from tool call history (not from LLM text)
     const pendingRequest = extractPendingRequest(newMessages);
@@ -304,12 +283,9 @@ client.on("messageCreate", async (message: Message) => {
     // Check if any section has a poster
     const hasPosters = sections.some((s) => s.posterUrl);
 
-    let sentMessage: Message | null = null;
+    let sentMessage: Message;
 
     if (hasPosters) {
-      // Delete the streamed message and replace with embeds
-      await liveMessage.delete();
-
       // Create embeds for each section (max 10 per message)
       const embeds = sections.slice(0, 10).map((section) => {
         const embed = new EmbedBuilder()
@@ -325,23 +301,10 @@ client.on("messageCreate", async (message: Message) => {
 
       sentMessage = await message.reply({ embeds, components });
     } else {
-      // Finalize the live message with the complete text
-      sentMessage = await liveMessage.finalize();
-
-      // Add buttons if pending request (also ensures clean display text)
-      if (sentMessage && components.length > 0) {
-        const cleanContent = response.slice(0, DISCORD_MAX_LENGTH);
-        sentMessage = await sentMessage.edit({
-          content: cleanContent,
-          components,
-        });
-      }
-
-      // If text exceeds Discord limit, send overflow as additional messages
       const fullText = sections.map((s) => s.text).join("\n\n---\n\n");
-      if (fullText.length > DISCORD_MAX_LENGTH && isTextChannel) {
-        const chunks = splitTextIntoChunks(fullText);
-        // First chunk is already in the live message, send the rest
+      const chunks = splitTextIntoChunks(fullText);
+      sentMessage = await message.reply({ content: chunks[0], components });
+      if (isTextChannel) {
         for (let i = 1; i < chunks.length; i++) {
           await channel.send(chunks[i]);
         }
@@ -349,7 +312,7 @@ client.on("messageCreate", async (message: Message) => {
     }
 
     // Set up button collector for pending requests
-    if (pendingRequest && sentMessage) {
+    if (pendingRequest) {
       const pr = pendingRequest;
       const collector = sentMessage.createMessageComponentCollector({
         filter: (i) => i.user.id === message.author.id,
@@ -384,7 +347,7 @@ client.on("messageCreate", async (message: Message) => {
 
       collector.on("end", (collected, reason) => {
         if (reason === "time" && collected.size === 0) {
-          sentMessage?.edit({ components: [] }).catch(() => {});
+          sentMessage.edit({ components: [] }).catch(() => {});
         }
       });
     }
@@ -397,8 +360,10 @@ client.on("messageCreate", async (message: Message) => {
         "Sorry, I encountered an error processing your request. Please try again later."
       );
     } catch {
-      // Reply may fail if the live message already replied
+      // Reply may fail if the channel is gone
     }
+  } finally {
+    clearInterval(typingInterval);
   }
 });
 
