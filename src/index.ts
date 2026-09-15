@@ -244,12 +244,15 @@ client.on("messageCreate", async (message: Message) => {
 
     // Get existing conversation for this user
     const existingMessages = sessionManager.get(message.author.id);
+    const isAdmin =
+      config.discord.adminUserIds.length === 0 ||
+      config.discord.adminUserIds.includes(message.author.id);
 
     const {
       result: response,
       messages: newMessages,
       usage,
-    } = await processMediaRequest(content, existingMessages);
+    } = await processMediaRequest(content, existingMessages, isAdmin);
 
     // Store the conversation for future messages
     sessionManager.set(message.author.id, newMessages);

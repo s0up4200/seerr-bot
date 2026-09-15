@@ -11,6 +11,9 @@ export const config = {
     token: requireEnv("DISCORD_BOT_TOKEN"),
     autoRespondUserId: process.env.DISCORD_AUTO_RESPOND_USER_ID,
     autoRespondChannelId: process.env.DISCORD_AUTO_RESPOND_CHANNEL_ID,
+    // Empty list means everyone may approve and decline requests.
+    adminUserIds:
+      process.env.DISCORD_ADMIN_USER_IDS?.split(",").map((id) => id.trim()).filter(Boolean) ?? [],
   },
   seerr: {
     url: requireEnv("SEERR_URL"),

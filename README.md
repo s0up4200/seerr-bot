@@ -1,6 +1,6 @@
 # seerr-bot
 
-A Discord bot that turns plain-language messages into [Seerr](https://github.com/seerr-team/seerr) media requests. It uses Claude (Anthropic API) to understand the request, looks the title up in Seerr and OMDb, and asks the user to confirm with a button before it sends anything to Seerr.
+A Discord bot that turns plain-language messages into [Seerr](https://github.com/seerr-team/seerr) media requests. Claude (Anthropic API) reads the message, the bot looks the title up in Seerr and OMDb, and the user confirms with a button before the bot sends the request to Seerr.
 
 Works with Seerr, Overseerr and Jellyseerr.
 
@@ -16,14 +16,14 @@ Mention the bot in a channel, or send it a DM:
 - `@seerr-bot show pending requests`
 - `@seerr-bot approve request #42`
 
-The bot shows the match with a poster and two buttons: **Request** and **Wrong one**. Nothing reaches Seerr until the user presses **Request**.
+The bot shows the match with a poster and two buttons, **Request** and **Wrong one**. The bot sends the request to Seerr only after the user presses **Request**.
 
 Extra commands:
 
 - `stats` or `usage` shows the user's token usage and estimated cost.
-- `reset`, `start over`, `forget` or `new conversation` clears the user's conversation. Conversations also expire after 30 minutes of silence.
+- `reset`, `start over`, `forget` or `new conversation` clears the user's conversation. The bot also drops a conversation after 30 minutes without messages.
 
-**Anyone who can message the bot can approve and decline Seerr requests.** Give the bot only to servers and channels where you trust every member, or remove `approveRequestTool` and `declineRequestTool` from `src/agent/tools/index.ts`.
+By default anyone who can message the bot can approve and decline Seerr requests. Set `DISCORD_ADMIN_USER_IDS` to limit that to named users. To limit who can talk to the bot, set Discord channel permissions on the bot role.
 
 ## Requirements
 
@@ -63,12 +63,13 @@ The bot reads `.env` from its working directory. Copy `.env.example` and fill in
 | `CLAUDE_MODEL` | no | Model ID. Default `claude-haiku-4-5-20251001`. |
 | `DISCORD_AUTO_RESPOND_USER_ID` | no | Discord user ID the bot answers without a mention. |
 | `DISCORD_AUTO_RESPOND_CHANNEL_ID` | no | Channel ID where that user gets answers without a mention. |
+| `DISCORD_ADMIN_USER_IDS` | no | Comma-separated user IDs that may approve and decline requests. Empty means everyone. |
 
 Set both `DISCORD_AUTO_RESPOND_*` variables or neither. Leave them empty to require a mention everywhere.
 
 ## Deploy with systemd
 
-The unit file in `distrib/` expects the bot in `/opt/seerr-bot`, run by a `seerr-bot` user, with Node.js on the host.
+The unit file in `distrib/` runs `/opt/seerr-bot/dist/index.js` with the host's Node.js as user `seerr-bot`.
 
 ```bash
 sudo useradd --system --home /opt/seerr-bot --shell /usr/sbin/nologin seerr-bot
