@@ -63,7 +63,7 @@ The bot reads `.env` from its working directory. Copy `.env.example` and fill in
 | `CLAUDE_MODEL` | no | Claude model ID. Defaults to `claude-haiku-4-5-20251001`. |
 | `DISCORD_AUTO_RESPOND_USER_ID` | no | Discord user ID the bot answers without a mention. |
 | `DISCORD_AUTO_RESPOND_CHANNEL_ID` | no | Channel ID where that user gets answers without a mention. |
-| `DISCORD_ADMIN_USER_IDS` | no | Comma-separated user IDs that may approve and decline requests. Empty means everyone. |
+| `DISCORD_ADMIN_USER_IDS` | no | Comma-separated user IDs that may approve and decline requests. Empty lets every user approve and decline. Does not limit who can talk to the bot. |
 
 Set both `DISCORD_AUTO_RESPOND_*` variables or neither. Leave them empty to require a mention everywhere.
 
