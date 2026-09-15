@@ -13,8 +13,7 @@ export interface AgentResponse {
 
 export async function processMediaRequest(
   userMessage: string,
-  existingMessages?: BetaMessageParam[],
-  onText?: (textSnapshot: string) => void
+  existingMessages?: BetaMessageParam[]
 ): Promise<AgentResponse> {
   const messages: BetaMessageParam[] = existingMessages
     ? [...existingMessages, { role: "user", content: userMessage }]
@@ -27,19 +26,12 @@ export async function processMediaRequest(
       system: SYSTEM_PROMPT,
       tools,
       messages,
-      stream: true,
     });
 
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
 
-    for await (const stream of runner) {
-      if (onText) {
-        stream.on("text", (_delta, snapshot) => {
-          onText(snapshot);
-        });
-      }
-      const msg = await stream.finalMessage();
+    for await (const msg of runner) {
       totalInputTokens += msg.usage.input_tokens;
       totalOutputTokens += msg.usage.output_tokens;
     }
