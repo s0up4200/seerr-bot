@@ -7,7 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 bun install        # Install dependencies
 bun run dev        # Run with watch mode for development
-bun run start      # Run bot directly (no build step needed)
+bun run build      # Bundle to dist/ for production
+bun run start      # Run the built bundle with node
 bun run typecheck  # Type-check with tsc (no emit)
 bun test           # Run tests
 ```
@@ -40,7 +41,7 @@ This is a Discord bot that uses the Anthropic SDK (`@anthropic-ai/sdk`) to handl
 5. Add tests in `src/__tests__/tools/`
 
 ### Environment Variables
-See `.env.example` for required variables: `DISCORD_BOT_TOKEN`, `SEERR_URL`, `SEERR_API_KEY`, `OMDB_API_KEY`, `ANTHROPIC_API_KEY`, and optional `CLAUDE_MODEL`.
+See `.env.example` for required variables: `DISCORD_BOT_TOKEN`, `SEERR_URL`, `SEERR_API_KEY`, `OMDB_API_KEY`, `ANTHROPIC_API_KEY`, and optional `CLAUDE_MODEL`, `DISCORD_AUTO_RESPOND_USER_ID`, `DISCORD_AUTO_RESPOND_CHANNEL_ID`, `DISCORD_ALLOWED_USER_IDS`.
 
 ## Commit Guidelines
 - Do not add "Co-Authored-By" lines or any AI attribution to commits

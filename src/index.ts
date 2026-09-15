@@ -152,7 +152,7 @@ const client = new Client({
 client.once("ready", () => {
   console.log(`Seerr Bot is online as ${client.user?.tag}`);
   console.log(
-    `Invite URL: https://discord.com/api/oauth2/authorize?client_id=${client.user?.id}&permissions=274877958144&scope=bot`
+    `Invite URL: https://discord.com/api/oauth2/authorize?client_id=${client.user?.id}&permissions=274877991936&scope=bot`
   );
 });
 

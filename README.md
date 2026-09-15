@@ -1,6 +1,6 @@
 # seerr-bot
 
-A Discord bot that turns plain-language messages into [Seerr](https://github.com/seerr-team/seerr) media requests. Claude (Anthropic API) reads the message, the bot looks the title up in Seerr and OMDb, and the user confirms with a button before the bot sends the request to Seerr.
+A Discord bot that turns plain-language messages into [Seerr](https://github.com/seerr-team/seerr) media requests. Claude (Anthropic API) reads the message. The bot looks the title up in Seerr and OMDb. The user confirms with a button before the bot sends the request to Seerr.
 
 Works with Seerr, Overseerr and Jellyseerr.
 
@@ -23,7 +23,7 @@ Extra commands:
 - `stats` or `usage` shows the user's token usage and estimated cost.
 - `reset`, `start over`, `forget` or `new conversation` clears the user's conversation. The bot also drops a conversation after 30 minutes without messages.
 
-Every message the bot answers costs Anthropic API tokens, and any user who can talk to the bot can also approve and decline Seerr requests. Set `DISCORD_ALLOWED_USER_IDS` to limit the bot to named users. The bot ignores messages from everyone else, including DMs.
+Every message the bot answers costs Anthropic API tokens. Any user who can talk to the bot can also approve and decline Seerr requests. Set `DISCORD_ALLOWED_USER_IDS` to limit the bot to named users. The bot ignores messages from everyone else, including DMs.
 
 ## Requirements
 
@@ -39,7 +39,7 @@ Every message the bot answers costs Anthropic API tokens, and any user who can t
 1. Create an application at the [Discord Developer Portal](https://discord.com/developers/applications) and add a bot to it.
 2. Under Bot, enable the Message Content Intent. Without it the bot receives empty messages.
 3. Copy the bot token into `DISCORD_BOT_TOKEN`.
-4. Under OAuth2 > URL Generator, select the `bot` scope and these permissions: View Channels, Send Messages, Read Message History, Embed Links. Open the generated URL to invite the bot.
+4. Under OAuth2 > URL Generator, select the `bot` scope and these permissions: View Channels, Send Messages, Send Messages in Threads, Read Message History, Embed Links. Open the generated URL to invite the bot.
 
 ## Run locally
 
@@ -63,13 +63,13 @@ The bot reads `.env` from its working directory. Copy `.env.example` and fill in
 | `CLAUDE_MODEL` | no | Claude model ID. Defaults to `claude-haiku-4-5-20251001`. |
 | `DISCORD_AUTO_RESPOND_USER_ID` | no | Discord user ID the bot answers without a mention. |
 | `DISCORD_AUTO_RESPOND_CHANNEL_ID` | no | Channel ID where that user gets answers without a mention. |
-| `DISCORD_ALLOWED_USER_IDS` | no | Comma-separated Discord user IDs that may use the bot. Empty lets every user who can reach the bot use it. |
+| `DISCORD_ALLOWED_USER_IDS` | no | Comma-separated Discord user IDs that may use the bot. If empty, every user who can reach the bot may use it. |
 
 Set both `DISCORD_AUTO_RESPOND_*` variables or neither. Leave them empty to require a mention everywhere.
 
 ## Deploy with systemd
 
-The unit file in `distrib/` runs `/opt/seerr-bot/dist/index.js` with the host's Node.js as user `seerr-bot`.
+The unit file in `distrib/` runs as user `seerr-bot`. It starts `/opt/seerr-bot/dist/index.js` with the host's Node.js.
 
 ```bash
 sudo useradd --system --home /opt/seerr-bot --shell /usr/sbin/nologin seerr-bot
