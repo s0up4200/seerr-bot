@@ -1,5 +1,6 @@
 {
   "name": "seerr-bot",
+  "license": "GPL-2.0-or-later",
   "version": "1.0.0",
   "description": "Discord bot using Anthropic SDK to interface with Seerr for media requests",
   "type": "module",

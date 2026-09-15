@@ -11,6 +11,9 @@ export const config = {
     token: requireEnv("DISCORD_BOT_TOKEN"),
     autoRespondUserId: process.env.DISCORD_AUTO_RESPOND_USER_ID,
     autoRespondChannelId: process.env.DISCORD_AUTO_RESPOND_CHANNEL_ID,
+    // Empty list means every user may talk to the bot.
+    allowedUserIds:
+      process.env.DISCORD_ALLOWED_USER_IDS?.split(",").map((id) => id.trim()).filter(Boolean) ?? [],
   },
   seerr: {
     url: requireEnv("SEERR_URL"),

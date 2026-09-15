@@ -1,29 +1,101 @@
 # seerr-bot
 
-Discord bot for Seerr media requests using the Anthropic SDK.
+A Discord bot that turns plain-language messages into [Seerr](https://github.com/seerr-team/seerr) media requests. Claude (Anthropic API) reads the message. The bot looks the title up in Seerr and OMDb. The user confirms with a button before the bot sends the request to Seerr.
 
-## Setup
+Works with Seerr, Overseerr and Jellyseerr.
+
+## What users can do
+
+Mention the bot in a channel, or send it a DM:
+
+- `@seerr-bot request the movie Inception`
+- `@seerr-bot get me the latest season of Severance`
+- `@seerr-bot add all seasons of The Bear`
+- `@seerr-bot what's trending?`
+- `@seerr-bot movies like Interstellar`
+- `@seerr-bot show pending requests`
+- `@seerr-bot approve request #42`
+
+The bot shows the match with a poster and two buttons, **Request** and **Wrong one**. The bot sends the request to Seerr only after the user presses **Request**.
+
+Extra commands:
+
+- `stats` or `usage` shows the user's token usage and estimated cost.
+- `reset`, `start over`, `forget` or `new conversation` clears the user's conversation. The bot also drops a conversation after 30 minutes without messages.
+
+Every message the bot answers costs Anthropic API tokens. Any user who can talk to the bot can also approve and decline Seerr requests. Set `DISCORD_ALLOWED_USER_IDS` to limit the bot to named users. The bot ignores messages from everyone else, including DMs.
+
+## Requirements
+
+- [Bun](https://bun.sh) 1.x to install, build and run in development.
+- Node.js 18 or newer to run the built bundle in production.
+- A Seerr, Overseerr or Jellyseerr instance and its API key (Settings > General).
+- A free [OMDb API key](https://www.omdbapi.com/apikey.aspx).
+- An [Anthropic API key](https://console.anthropic.com/).
+- A Discord bot token (see below).
+
+## Discord setup
+
+1. Create an application at the [Discord Developer Portal](https://discord.com/developers/applications) and add a bot to it.
+2. Under Bot, enable the Message Content Intent. Without it the bot receives empty messages.
+3. Copy the bot token into `DISCORD_BOT_TOKEN`.
+4. Under OAuth2 > URL Generator, select the `bot` scope and these permissions: View Channels, Send Messages, Send Messages in Threads, Read Message History, Embed Links. Open the generated URL to invite the bot.
+
+## Run locally
 
 ```bash
-pnpm install
-cp .env.example .env
-pnpm build
-pnpm start
+bun install
+cp .env.example .env   # fill in the values
+bun run dev            # restarts on file changes
 ```
 
-## Deploy
+## Configuration
+
+The bot reads `.env` from its working directory. Copy `.env.example` and fill in:
+
+| Variable | Required | What it is |
+|---|---|---|
+| `DISCORD_BOT_TOKEN` | yes | Bot token from the Discord Developer Portal. |
+| `SEERR_URL` | yes | Base URL of your Seerr instance, for example `http://localhost:5055`. |
+| `SEERR_API_KEY` | yes | Seerr API key from Settings > General. |
+| `OMDB_API_KEY` | yes | OMDb API key, used to verify titles against IMDb. |
+| `ANTHROPIC_API_KEY` | yes | Anthropic API key. |
+| `CLAUDE_MODEL` | no | Claude model ID. Defaults to `claude-haiku-4-5-20251001`. |
+| `DISCORD_AUTO_RESPOND_USER_ID` | no | Discord user ID the bot answers without a mention. |
+| `DISCORD_AUTO_RESPOND_CHANNEL_ID` | no | Channel ID where that user gets answers without a mention. |
+| `DISCORD_ALLOWED_USER_IDS` | no | Comma-separated Discord user IDs that may use the bot. If empty, every user who can reach the bot may use it. |
+
+Set both `DISCORD_AUTO_RESPOND_*` variables or neither. Leave them empty to require a mention everywhere.
+
+## Deploy with systemd
+
+The unit file in `distrib/` runs as user `seerr-bot`. It starts `/opt/seerr-bot/dist/index.js` with the host's Node.js.
 
 ```bash
+sudo useradd --system --home /opt/seerr-bot --shell /usr/sbin/nologin seerr-bot
+sudo git clone https://github.com/s0up4200/seerr-bot /opt/seerr-bot
+cd /opt/seerr-bot
+sudo cp .env.example .env   # fill in the values
+sudo bun install --frozen-lockfile
+sudo bun run build
+sudo chown -R seerr-bot:seerr-bot /opt/seerr-bot
 sudo cp distrib/seerr-bot.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now seerr-bot
+journalctl -u seerr-bot -f
 ```
 
-## Env
+To update, run `git pull`, `bun install --frozen-lockfile` and `bun run build`, then `sudo systemctl restart seerr-bot`.
 
-- `DISCORD_BOT_TOKEN`
-- `SEERR_URL`
-- `SEERR_API_KEY`
-- `OMDB_API_KEY`
-- `ANTHROPIC_API_KEY`
-- `CLAUDE_MODEL` (default: claude-haiku-4-5-20251001)
+## Development
+
+```bash
+bun run typecheck
+bun test
+```
+
+See `CLAUDE.md` for the code layout and how to add a tool.
+
+## License
+
+GPL-2.0-or-later. See `LICENSE`.

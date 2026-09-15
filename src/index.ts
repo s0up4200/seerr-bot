@@ -152,7 +152,7 @@ const client = new Client({
 client.once("ready", () => {
   console.log(`Seerr Bot is online as ${client.user?.tag}`);
   console.log(
-    `Invite URL: https://discord.com/api/oauth2/authorize?client_id=${client.user?.id}&permissions=274877958144&scope=bot`
+    `Invite URL: https://discord.com/api/oauth2/authorize?client_id=${client.user?.id}&permissions=274877991936&scope=bot`
   );
 });
 
@@ -170,6 +170,9 @@ client.on("messageCreate", async (message: Message) => {
     message.channel.id === config.discord.autoRespondChannelId;
 
   if (!isMentioned && !isDM && !isAutoRespond) return;
+
+  const { allowedUserIds } = config.discord;
+  if (allowedUserIds.length > 0 && !allowedUserIds.includes(message.author.id)) return;
 
   // Extract the request text (remove mention if present)
   let content = message.content;
