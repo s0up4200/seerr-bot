@@ -37,9 +37,9 @@ By default anyone who can message the bot can approve and decline Seerr requests
 ## Discord setup
 
 1. Create an application at the [Discord Developer Portal](https://discord.com/developers/applications) and add a bot to it.
-2. Under **Bot**, enable the **Message Content Intent**. Without it the bot receives empty messages.
+2. Under Bot, enable the Message Content Intent. Without it the bot receives empty messages.
 3. Copy the bot token into `DISCORD_BOT_TOKEN`.
-4. Under **OAuth2 > URL Generator**, select the `bot` scope and these permissions: View Channels, Send Messages, Read Message History, Embed Links. Open the generated URL to invite the bot.
+4. Under OAuth2 > URL Generator, select the `bot` scope and these permissions: View Channels, Send Messages, Read Message History, Embed Links. Open the generated URL to invite the bot.
 
 ## Run locally
 
@@ -60,7 +60,7 @@ The bot reads `.env` from its working directory. Copy `.env.example` and fill in
 | `SEERR_API_KEY` | yes | Seerr API key from Settings > General. |
 | `OMDB_API_KEY` | yes | OMDb API key, used to verify titles against IMDb. |
 | `ANTHROPIC_API_KEY` | yes | Anthropic API key. |
-| `CLAUDE_MODEL` | no | Model ID. Default `claude-haiku-4-5-20251001`. |
+| `CLAUDE_MODEL` | no | Claude model ID. Defaults to `claude-haiku-4-5-20251001`. |
 | `DISCORD_AUTO_RESPOND_USER_ID` | no | Discord user ID the bot answers without a mention. |
 | `DISCORD_AUTO_RESPOND_CHANNEL_ID` | no | Channel ID where that user gets answers without a mention. |
 | `DISCORD_ADMIN_USER_IDS` | no | Comma-separated user IDs that may approve and decline requests. Empty means everyone. |
@@ -85,7 +85,7 @@ sudo systemctl enable --now seerr-bot
 journalctl -u seerr-bot -f
 ```
 
-To update: `git pull`, `bun install --frozen-lockfile`, `bun run build`, `sudo systemctl restart seerr-bot`.
+To update, run `git pull`, `bun install --frozen-lockfile` and `bun run build`, then `sudo systemctl restart seerr-bot`.
 
 ## Development
 
