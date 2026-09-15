@@ -49,7 +49,22 @@ cp .env.example .env   # fill in the values
 bun run dev            # restarts on file changes
 ```
 
-`.env.example` documents every variable. The two optional `DISCORD_AUTO_RESPOND_*` variables make the bot answer one user in one channel without a mention. Leave them empty to require a mention everywhere.
+## Configuration
+
+The bot reads `.env` from its working directory. Copy `.env.example` and fill in:
+
+| Variable | Required | What it is |
+|---|---|---|
+| `DISCORD_BOT_TOKEN` | yes | Bot token from the Discord Developer Portal. |
+| `SEERR_URL` | yes | Base URL of your Seerr instance, for example `http://localhost:5055`. |
+| `SEERR_API_KEY` | yes | Seerr API key from Settings > General. |
+| `OMDB_API_KEY` | yes | OMDb API key, used to verify titles against IMDb. |
+| `ANTHROPIC_API_KEY` | yes | Anthropic API key. |
+| `CLAUDE_MODEL` | no | Model ID. Default `claude-haiku-4-5-20251001`. |
+| `DISCORD_AUTO_RESPOND_USER_ID` | no | Discord user ID the bot answers without a mention. |
+| `DISCORD_AUTO_RESPOND_CHANNEL_ID` | no | Channel ID where that user gets answers without a mention. |
+
+Set both `DISCORD_AUTO_RESPOND_*` variables or neither. Leave them empty to require a mention everywhere.
 
 ## Deploy with systemd
 
