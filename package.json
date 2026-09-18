@@ -12,7 +12,7 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.125.0",
+    "@anthropic-ai/sdk": "^0.126.0",
     "discord.js": "^14.27.0",
     "zod": "^4.6.2"
   },
