@@ -16,59 +16,17 @@ import { processMediaRequest } from "./agent/index.js";
 import { sessionManager } from "./sessions.js";
 import { usageTracker, calculateCost } from "./usageTracker.js";
 import { seerr } from "./services/seerr.js";
-import { formatErrorMessage, getRequestStatusText, POSTER_REGEX, splitTrailingText } from "./utils.js";
+import {
+  extractPendingRequest,
+  formatErrorMessage,
+  getRequestStatusText,
+  POSTER_REGEX,
+  splitTrailingText,
+} from "./utils.js";
 
 interface ResponseSection {
   text: string;
   posterUrl: string | null;
-}
-
-interface PendingRequest {
-  tmdbId: number;
-  mediaType: "movie" | "tv";
-  seasons?: number[];
-}
-
-function extractPendingRequest(
-  messages: import("@anthropic-ai/sdk/resources/beta.js").BetaMessageParam[],
-): PendingRequest | null {
-  // Scan messages in reverse to find the last request_media tool call
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const msg = messages[i];
-    if (msg.role !== "assistant" || !Array.isArray(msg.content)) continue;
-    for (const block of msg.content) {
-      if (block.type !== "tool_use" || block.name !== "request_media") continue;
-      const input = block.input as Record<string, unknown>;
-      if (
-        typeof input.tmdbId !== "number" ||
-        (input.mediaType !== "movie" && input.mediaType !== "tv")
-      ) {
-        continue;
-      }
-      if (input.mediaType === "tv" && (!Array.isArray(input.seasons) || input.seasons.length === 0)) {
-        continue;
-      }
-
-      // Verify the tool result confirms the request was prepared, not rejected
-      const resultMsg = messages[i + 1];
-      if (resultMsg?.role === "user" && Array.isArray(resultMsg.content)) {
-        const toolResult = resultMsg.content.find(
-          (b) => b.type === "tool_result" && "tool_use_id" in b && b.tool_use_id === block.id,
-        );
-        if (
-          toolResult &&
-          "content" in toolResult &&
-          typeof toolResult.content === "string" &&
-          !toolResult.content.includes("Request prepared for user confirmation")
-        ) {
-          continue;
-        }
-      }
-
-      return input as unknown as PendingRequest;
-    }
-  }
-  return null;
 }
 
 function parseResponseSections(text: string): ResponseSection[] {
@@ -260,7 +218,7 @@ client.on("messageCreate", async (message: Message) => {
     usageTracker.record(message.author.id, usage.inputTokens, usage.outputTokens);
 
     // Extract pending request from tool call history (not from LLM text)
-    const pendingRequest = extractPendingRequest(newMessages);
+    const pendingRequest = extractPendingRequest(newMessages.slice(existingMessages?.length ?? 0));
 
     // Build confirmation buttons if there's a pending request
     const buttonId = pendingRequest ? crypto.randomUUID() : "";
