@@ -16,7 +16,7 @@ Mention the bot in a channel, or send it a DM:
 - `@seerr-bot show pending requests`
 - `@seerr-bot approve request #42`
 
-The bot shows the match with a poster and two buttons, **Request** and **Wrong one**. The bot sends the request to Seerr only after the user presses **Request**.
+The bot shows the match with a poster and three buttons: **For me**, **For someone else** and **Wrong one**. **For me** sends the request to Seerr as the owner of the API key. **For someone else** shows a list of Seerr users, and the bot sends the request as the user you pick. The list shows the first 25 users only, because a Discord select menu holds 25 options.
 
 Extra commands:
 
@@ -60,7 +60,7 @@ The bot reads `.env` from its working directory. Copy `.env.example` and fill in
 | `SEERR_API_KEY` | yes | Seerr API key from Settings > General. |
 | `OMDB_API_KEY` | yes | OMDb API key, used to verify titles against IMDb. |
 | `ANTHROPIC_API_KEY` | yes | Anthropic API key. |
-| `CLAUDE_MODEL` | no | Claude model ID. Defaults to `claude-haiku-4-5-20251001`. |
+| `CLAUDE_MODEL` | no | Claude model ID. Defaults to `claude-sonnet-5-5`. |
 | `DISCORD_AUTO_RESPOND_USER_ID` | no | Discord user ID the bot answers without a mention. |
 | `DISCORD_AUTO_RESPOND_CHANNEL_ID` | no | Channel ID where that user gets answers without a mention. |
 | `DISCORD_ALLOWED_USER_IDS` | no | Comma-separated Discord user IDs that may use the bot. If empty, every user who can reach the bot may use it. |

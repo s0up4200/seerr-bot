@@ -12,6 +12,7 @@ interface ModelPricing {
 }
 
 const MODEL_PRICING: { prefix: string; pricing: ModelPricing }[] = [
+  { prefix: "claude-opus-5-5", pricing: { inputPerMTok: 4, outputPerMTok: 20 } },
   { prefix: "claude-opus-5", pricing: { inputPerMTok: 5, outputPerMTok: 25 } },
   { prefix: "claude-opus-4", pricing: { inputPerMTok: 5, outputPerMTok: 25 } },
   {

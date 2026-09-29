@@ -7,6 +7,7 @@ import {
   GatewayIntentBits,
   Message,
   Partials,
+  StringSelectMenuBuilder,
   TextChannel,
   DMChannel,
 } from "discord.js";
@@ -15,61 +16,17 @@ import { processMediaRequest } from "./agent/index.js";
 import { sessionManager } from "./sessions.js";
 import { usageTracker, calculateCost } from "./usageTracker.js";
 import { seerr } from "./services/seerr.js";
-import { formatErrorMessage, getRequestStatusText } from "./utils.js";
+import {
+  extractPendingRequest,
+  formatErrorMessage,
+  getRequestStatusText,
+  POSTER_REGEX,
+  splitTrailingText,
+} from "./utils.js";
 
 interface ResponseSection {
   text: string;
   posterUrl: string | null;
-}
-
-const POSTER_REGEX = /\[POSTER:(https:\/\/[^\]]+)\]/g;
-
-interface PendingRequest {
-  tmdbId: number;
-  mediaType: "movie" | "tv";
-  seasons?: number[];
-}
-
-function extractPendingRequest(
-  messages: import("@anthropic-ai/sdk/resources/beta.js").BetaMessageParam[],
-): PendingRequest | null {
-  // Scan messages in reverse to find the last request_media tool call
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const msg = messages[i];
-    if (msg.role !== "assistant" || !Array.isArray(msg.content)) continue;
-    for (const block of msg.content) {
-      if (block.type !== "tool_use" || block.name !== "request_media") continue;
-      const input = block.input as Record<string, unknown>;
-      if (
-        typeof input.tmdbId !== "number" ||
-        (input.mediaType !== "movie" && input.mediaType !== "tv")
-      ) {
-        continue;
-      }
-      if (input.mediaType === "tv" && (!Array.isArray(input.seasons) || input.seasons.length === 0)) {
-        continue;
-      }
-
-      // Verify the tool result confirms the request was prepared, not rejected
-      const resultMsg = messages[i + 1];
-      if (resultMsg?.role === "user" && Array.isArray(resultMsg.content)) {
-        const toolResult = resultMsg.content.find(
-          (b) => b.type === "tool_result" && "tool_use_id" in b && b.tool_use_id === block.id,
-        );
-        if (
-          toolResult &&
-          "content" in toolResult &&
-          typeof toolResult.content === "string" &&
-          !toolResult.content.includes("Request prepared for user confirmation")
-        ) {
-          continue;
-        }
-      }
-
-      return input as unknown as PendingRequest;
-    }
-  }
-  return null;
 }
 
 function parseResponseSections(text: string): ResponseSection[] {
@@ -261,27 +218,33 @@ client.on("messageCreate", async (message: Message) => {
     usageTracker.record(message.author.id, usage.inputTokens, usage.outputTokens);
 
     // Extract pending request from tool call history (not from LLM text)
-    const pendingRequest = extractPendingRequest(newMessages);
+    const pendingRequest = extractPendingRequest(newMessages.slice(existingMessages?.length ?? 0));
 
     // Build confirmation buttons if there's a pending request
     const buttonId = pendingRequest ? crypto.randomUUID() : "";
+    const cancelButton = new ButtonBuilder()
+      .setCustomId(`cancel-${buttonId}`)
+      .setLabel("Wrong one")
+      .setStyle(ButtonStyle.Secondary);
     const components = pendingRequest
       ? [
           new ActionRowBuilder<ButtonBuilder>().addComponents(
             new ButtonBuilder()
               .setCustomId(`confirm-${buttonId}`)
-              .setLabel("Request")
+              .setLabel("For me")
               .setStyle(ButtonStyle.Success),
             new ButtonBuilder()
-              .setCustomId(`cancel-${buttonId}`)
-              .setLabel("Wrong one")
-              .setStyle(ButtonStyle.Secondary),
+              .setCustomId(`other-${buttonId}`)
+              .setLabel("For someone else")
+              .setStyle(ButtonStyle.Primary),
+            cancelButton,
           ),
         ]
       : [];
 
     // Parse response into sections
-    const sections = parseResponseSections(response);
+    const { body, trailing } = splitTrailingText(response);
+    const sections = parseResponseSections(body);
 
     // Check if any section has a poster
     const hasPosters = sections.some((s) => s.posterUrl);
@@ -302,7 +265,11 @@ client.on("messageCreate", async (message: Message) => {
         return embed;
       });
 
-      sentMessage = await message.reply({ embeds, components });
+      sentMessage = await message.reply({
+        content: trailing.slice(0, DISCORD_MAX_LENGTH) || undefined,
+        embeds,
+        components,
+      });
     } else {
       const fullText = sections.map((s) => s.text).join("\n\n---\n\n");
       const chunks = splitTextIntoChunks(fullText);
@@ -320,21 +287,71 @@ client.on("messageCreate", async (message: Message) => {
       const collector = sentMessage.createMessageComponentCollector({
         filter: (i) => i.user.id === message.author.id,
         time: 5 * 60 * 1000,
-        max: 1,
       });
 
       collector.on("collect", async (interaction) => {
-        await interaction.update({ components: [] });
+        // "For someone else" swaps the buttons for a Seerr user picker.
+        if (interaction.customId === `other-${buttonId}`) {
+          try {
+            const { results } = await seerr.listUsers();
+            if (results.length === 0) throw new Error("Seerr returned no users");
+            // ponytail: a Discord select menu holds 25 options; more users need paging or a search step.
+            const options = results.map((u) => ({
+              label: (u.displayName || u.username || u.email).slice(0, 100),
+              value: String(u.id),
+            }));
+            await interaction.update({
+              components: [
+                new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+                  new StringSelectMenuBuilder()
+                    .setCustomId(`user-${buttonId}`)
+                    .setPlaceholder("Request on behalf of...")
+                    .addOptions(options),
+                ),
+                new ActionRowBuilder<ButtonBuilder>().addComponents(cancelButton),
+              ],
+            });
+          } catch (error) {
+            collector.stop();
+            await interaction.update({ components: [] });
+            await interaction.followUp(
+              `Failed to load Seerr users: ${formatErrorMessage(error)}`,
+            );
+          }
+          return;
+        }
 
-        if (interaction.customId === `confirm-${buttonId}`) {
+        // Read the picked user before the update below clears the components it comes from.
+        const selected = interaction.isStringSelectMenu()
+          ? interaction.component.options.find((o) => o.value === interaction.values[0])
+          : undefined;
+        collector.stop();
+        // Leave the choice on the message as a disabled button, so the user sees what they picked.
+        const cancelled = interaction.customId === `cancel-${buttonId}`;
+        const choice = cancelled ? "Cancelled" : selected ? `For ${selected.label}` : "For me";
+        await interaction.update({
+          components: [
+            new ActionRowBuilder<ButtonBuilder>().addComponents(
+              new ButtonBuilder()
+                .setCustomId(`done-${buttonId}`)
+                .setLabel(choice.slice(0, 80))
+                .setStyle(ButtonStyle.Secondary)
+                .setDisabled(true),
+            ),
+          ],
+        });
+
+        if (!cancelled) {
+          // No userId means Seerr files the request as the API key owner.
+          const userId = selected ? Number(selected.value) : undefined;
           try {
             const res =
               pr.mediaType === "movie"
-                ? await seerr.requestMovie(pr.tmdbId)
-                : await seerr.requestTv(pr.tmdbId, pr.seasons!);
+                ? await seerr.requestMovie(pr.tmdbId, userId)
+                : await seerr.requestTv(pr.tmdbId, pr.seasons!, userId);
             const status = getRequestStatusText(res.status);
             await interaction.followUp(
-              `Request submitted! (ID: ${res.id}, Status: ${status})`,
+              `Request submitted for ${selected?.label ?? "you"}! (ID: ${res.id}, Status: ${status})`,
             );
           } catch (error) {
             await interaction.followUp(
@@ -348,8 +365,8 @@ client.on("messageCreate", async (message: Message) => {
         }
       });
 
-      collector.on("end", (collected, reason) => {
-        if (reason === "time" && collected.size === 0) {
+      collector.on("end", (_collected, reason) => {
+        if (reason === "time") {
           sentMessage.edit({ components: [] }).catch(() => {});
         }
       });

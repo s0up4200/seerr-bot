@@ -1,4 +1,3 @@
-import type Anthropic from "@anthropic-ai/sdk";
 import type { BetaMessageParam } from "@anthropic-ai/sdk/resources/beta.js";
 import { anthropic } from "./client.js";
 import { config } from "../config.js";
@@ -30,21 +29,19 @@ export async function processMediaRequest(
 
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
+    // The reply is the text of the last message that has any. A turn can end with a
+    // message that has no text, after the model already wrote the reply before a tool call.
+    let reply = "";
 
     for await (const msg of runner) {
       totalInputTokens += msg.usage.input_tokens;
       totalOutputTokens += msg.usage.output_tokens;
+      const text = msg.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("\n");
+      if (text.trim()) reply = text;
     }
 
-    const finalMessage = await runner.done();
-
-    const textBlocks = finalMessage.content.filter(
-      (block): block is Anthropic.Beta.Messages.BetaTextBlock =>
-        block.type === "text"
-    );
-
     return {
-      result: textBlocks.map((b) => b.text).join("\n") || "No response",
+      result: reply || "No response",
       messages: [...runner.params.messages],
       usage: { inputTokens: totalInputTokens, outputTokens: totalOutputTokens },
     };
