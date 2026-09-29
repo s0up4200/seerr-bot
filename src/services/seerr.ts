@@ -12,6 +12,7 @@ import type {
   DiscoverTvOptions,
   RatingsResponse,
   RTRating,
+  UserListResponse,
 } from "../types/index.js";
 
 class SeerrService {
@@ -58,18 +59,20 @@ class SeerrService {
     return this.request<TvDetails>(`/api/v1/tv/${tmdbId}`);
   }
 
-  async requestMovie(tmdbId: number): Promise<RequestResponse> {
+  // userId makes Seerr file the request as that user instead of the API key owner.
+  async requestMovie(tmdbId: number, userId?: number): Promise<RequestResponse> {
     return this.request<RequestResponse>("/api/v1/request", {
       method: "POST",
       body: JSON.stringify({
         mediaType: "movie",
         mediaId: tmdbId,
         is4k: false,
+        userId,
       }),
     });
   }
 
-  async requestTv(tmdbId: number, seasons: number[]): Promise<RequestResponse> {
+  async requestTv(tmdbId: number, seasons: number[], userId?: number): Promise<RequestResponse> {
     return this.request<RequestResponse>("/api/v1/request", {
       method: "POST",
       body: JSON.stringify({
@@ -77,8 +80,13 @@ class SeerrService {
         mediaId: tmdbId,
         seasons,
         is4k: false,
+        userId,
       }),
     });
+  }
+
+  async listUsers(): Promise<UserListResponse> {
+    return this.request<UserListResponse>("/api/v1/user?take=25");
   }
 
   async listRequests(

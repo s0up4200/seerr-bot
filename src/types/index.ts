@@ -168,6 +168,11 @@ export interface RequestListResponse {
   results: MediaRequestItem[];
 }
 
+export interface UserListResponse {
+  pageInfo: RequestListResponse["pageInfo"];
+  results: MediaRequestUser[];
+}
+
 export type RequestFilter =
   | "pending"
   | "approved"
