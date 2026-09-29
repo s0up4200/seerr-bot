@@ -368,9 +368,22 @@ client.on("messageCreate", async (message: Message) => {
           ? interaction.component.options.find((o) => o.value === interaction.values[0])
           : undefined;
         collector.stop();
-        await interaction.update({ components: [] });
+        // Leave the choice on the message as a disabled button, so the user sees what they picked.
+        const cancelled = interaction.customId === `cancel-${buttonId}`;
+        const choice = cancelled ? "Cancelled" : selected ? `For ${selected.label}` : "For me";
+        await interaction.update({
+          components: [
+            new ActionRowBuilder<ButtonBuilder>().addComponents(
+              new ButtonBuilder()
+                .setCustomId(`done-${buttonId}`)
+                .setLabel(choice.slice(0, 80))
+                .setStyle(ButtonStyle.Secondary)
+                .setDisabled(true),
+            ),
+          ],
+        });
 
-        if (interaction.customId !== `cancel-${buttonId}`) {
+        if (!cancelled) {
           // No userId means Seerr files the request as the API key owner.
           const userId = selected ? Number(selected.value) : undefined;
           try {
@@ -379,9 +392,8 @@ client.on("messageCreate", async (message: Message) => {
                 ? await seerr.requestMovie(pr.tmdbId, userId)
                 : await seerr.requestTv(pr.tmdbId, pr.seasons!, userId);
             const status = getRequestStatusText(res.status);
-            const onBehalf = selected ? ` for ${selected.label}` : "";
             await interaction.followUp(
-              `Request submitted${onBehalf}! (ID: ${res.id}, Status: ${status})`,
+              `Request submitted for ${selected?.label ?? "you"}! (ID: ${res.id}, Status: ${status})`,
             );
           } catch (error) {
             await interaction.followUp(
