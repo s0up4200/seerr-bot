@@ -24,6 +24,6 @@ export const config = {
   },
   anthropic: {
     apiKey: requireEnv("ANTHROPIC_API_KEY"),
-    model: process.env.CLAUDE_MODEL || "claude-haiku-4-5-20251001",
+    model: process.env.CLAUDE_MODEL || "claude-sonnet-5-5",
   },
 } as const;

@@ -60,7 +60,7 @@ The bot reads `.env` from its working directory. Copy `.env.example` and fill in
 | `SEERR_API_KEY` | yes | Seerr API key from Settings > General. |
 | `OMDB_API_KEY` | yes | OMDb API key, used to verify titles against IMDb. |
 | `ANTHROPIC_API_KEY` | yes | Anthropic API key. |
-| `CLAUDE_MODEL` | no | Claude model ID. Defaults to `claude-haiku-4-5-20251001`. |
+| `CLAUDE_MODEL` | no | Claude model ID. Defaults to `claude-sonnet-5-5`. |
 | `DISCORD_AUTO_RESPOND_USER_ID` | no | Discord user ID the bot answers without a mention. |
 | `DISCORD_AUTO_RESPOND_CHANNEL_ID` | no | Channel ID where that user gets answers without a mention. |
 | `DISCORD_ALLOWED_USER_IDS` | no | Comma-separated Discord user IDs that may use the bot. If empty, every user who can reach the bot may use it. |
