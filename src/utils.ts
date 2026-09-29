@@ -82,3 +82,16 @@ export function formatMediaResult(
 
   return `${index + 1}. ${title} (${dateDisplay})${typeLabel}\nRating: ${rating}\n${tmdbUrl}\n\n${overview}${poster}`;
 }
+
+export const POSTER_REGEX = /\[POSTER:(https:\/\/[^\]]+)\]/g;
+
+// Text after the last poster tag, such as a question to the user, belongs
+// outside the embeds. If no text comes before the tag, nothing is split off.
+export function splitTrailingText(text: string): { body: string; trailing: string } {
+  const last = [...text.matchAll(POSTER_REGEX)].at(-1);
+  if (!last || !text.slice(0, last.index).replace(POSTER_REGEX, "").trim()) {
+    return { body: text, trailing: "" };
+  }
+  const end = last.index + last[0].length;
+  return { body: text.slice(0, end), trailing: text.slice(end).trim() };
+}

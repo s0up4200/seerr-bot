@@ -3,6 +3,7 @@ import {
   getMediaStatusText,
   getRequestStatusText,
   formatErrorMessage,
+  splitTrailingText,
   formatMediaResult,
 } from "../utils.js";
 import { MediaStatus, RequestStatus } from "../types/index.js";
@@ -141,5 +142,25 @@ describe("formatMediaResult", () => {
     const noDate = { ...baseResult, releaseDate: undefined };
     const result = formatMediaResult(noDate, 0, "movie");
     expect(result).toContain("(TBA)");
+  });
+});
+
+describe("splitTrailingText", () => {
+  const poster = "[POSTER:https://image.tmdb.org/t/p/w342/a.jpg]";
+
+  it("splits off text after the last poster", () => {
+    expect(splitTrailingText(`**Dune**\n\n${poster}\n\nRequest it?`)).toEqual({
+      body: `**Dune**\n\n${poster}`,
+      trailing: "Request it?",
+    });
+  });
+
+  it("keeps everything when the poster comes first", () => {
+    const text = `${poster}\n**Dune**`;
+    expect(splitTrailingText(text)).toEqual({ body: text, trailing: "" });
+  });
+
+  it("keeps everything when there is no poster", () => {
+    expect(splitTrailingText("No match.")).toEqual({ body: "No match.", trailing: "" });
   });
 });

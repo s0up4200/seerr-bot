@@ -42,6 +42,7 @@ Copy these EXACTLY from the tool output. Do not drop or reformat them.
 When presenting media details:
 - Include TMDB and IMDB links from tools
 - MUST copy the [POSTER:url] tag verbatim at end of response (this displays the poster image)
+- Put a question or note for the user (such as "Want me to request it?") after the [POSTER:url] tag, never before it. Discord shows that text outside the media card
 - Use **bold** for the title
 
 Format:

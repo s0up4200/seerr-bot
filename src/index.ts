@@ -16,14 +16,12 @@ import { processMediaRequest } from "./agent/index.js";
 import { sessionManager } from "./sessions.js";
 import { usageTracker, calculateCost } from "./usageTracker.js";
 import { seerr } from "./services/seerr.js";
-import { formatErrorMessage, getRequestStatusText } from "./utils.js";
+import { formatErrorMessage, getRequestStatusText, POSTER_REGEX, splitTrailingText } from "./utils.js";
 
 interface ResponseSection {
   text: string;
   posterUrl: string | null;
 }
-
-const POSTER_REGEX = /\[POSTER:(https:\/\/[^\]]+)\]/g;
 
 interface PendingRequest {
   tmdbId: number;
@@ -287,7 +285,8 @@ client.on("messageCreate", async (message: Message) => {
       : [];
 
     // Parse response into sections
-    const sections = parseResponseSections(response);
+    const { body, trailing } = splitTrailingText(response);
+    const sections = parseResponseSections(body);
 
     // Check if any section has a poster
     const hasPosters = sections.some((s) => s.posterUrl);
@@ -308,7 +307,11 @@ client.on("messageCreate", async (message: Message) => {
         return embed;
       });
 
-      sentMessage = await message.reply({ embeds, components });
+      sentMessage = await message.reply({
+        content: trailing.slice(0, DISCORD_MAX_LENGTH) || undefined,
+        embeds,
+        components,
+      });
     } else {
       const fullText = sections.map((s) => s.text).join("\n\n---\n\n");
       const chunks = splitTextIntoChunks(fullText);
