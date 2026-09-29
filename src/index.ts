@@ -360,14 +360,15 @@ client.on("messageCreate", async (message: Message) => {
           return;
         }
 
+        // Read the picked user before the update below clears the components it comes from.
+        const selected = interaction.isStringSelectMenu()
+          ? interaction.component.options.find((o) => o.value === interaction.values[0])
+          : undefined;
         collector.stop();
         await interaction.update({ components: [] });
 
         if (interaction.customId !== `cancel-${buttonId}`) {
           // No userId means Seerr files the request as the API key owner.
-          const selected = interaction.isStringSelectMenu()
-            ? interaction.component.options.find((o) => o.value === interaction.values[0])
-            : undefined;
           const userId = selected ? Number(selected.value) : undefined;
           try {
             const res =
