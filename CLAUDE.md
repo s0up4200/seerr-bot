@@ -45,3 +45,17 @@ See `.env.example` for required variables: `DISCORD_BOT_TOKEN`, `SEERR_URL`, `SE
 
 ## Commit Guidelines
 - Do not add "Co-Authored-By" lines or any AI attribution to commits
+
+## Agent skills
+
+### Issue tracker
+
+Issues are in GitHub Issues. Use the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The repo uses the six default triage labels with no changes. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+The repo is single-context, with `GLOSSARY.md` and `docs/adr/` at the root. See `docs/agents/domain.md`.
