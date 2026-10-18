@@ -141,7 +141,7 @@ const client = new Client({
   partials: [Partials.Channel],
 });
 
-client.once("ready", async () => {
+client.once("clientReady", async () => {
   console.log(`Seerr Bot is online as ${client.user?.tag}`);
   console.log(
     `Invite URL: https://discord.com/api/oauth2/authorize?client_id=${client.user?.id}&permissions=274877991936&scope=bot%20applications.commands`
