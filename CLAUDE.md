@@ -30,7 +30,7 @@ This is a Discord bot that uses the Anthropic SDK (`@anthropic-ai/sdk`) to handl
 - Most tool files export a factory function (`createXTool({ seerr })`) for testability and a default instance (some tools have no deps)
 - The `toolRunner()` handles the entire tool-use loop automatically (no manual while loop)
 - Tools return `[POSTER:url]` tags that the Discord handler parses to display images as embed thumbnails
-- The `request_media` tool returns `[PENDING_REQUEST:json]` tags — the Discord handler parses these to show confirm/cancel buttons before submitting to Seerr
+- The `request_media` tool only prepares a request and returns the text "Request prepared for user confirmation". `extractPendingRequest` (`src/utils.ts`) finds that text in the tool results of the current turn, and the Discord handler shows confirm buttons. Seerr gets the request only after a click. Keep that text identical in `src/agent/tools/request.ts` and `src/utils.ts`, or the buttons stop showing
 - Session management tracks conversation state per Discord user via `BetaMessageParam[]`
 
 ### Adding New Tools
