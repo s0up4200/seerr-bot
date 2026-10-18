@@ -3,10 +3,14 @@ import {
   ButtonBuilder,
   ButtonStyle,
   Client,
+  ApplicationIntegrationType,
   EmbedBuilder,
   GatewayIntentBits,
+  InteractionContextType,
   Message,
+  MessageFlags,
   Partials,
+  SlashCommandBuilder,
   StringSelectMenuBuilder,
   TextChannel,
   DMChannel,
@@ -96,6 +100,37 @@ function splitTextIntoChunks(text: string, maxLength = DISCORD_MAX_LENGTH): stri
   return chunks;
 }
 
+function isAllowed(userId: string): boolean {
+  const { allowedUserIds } = config.discord;
+  return allowedUserIds.length === 0 || allowedUserIds.includes(userId);
+}
+
+function formatUsageStats(userId: string): string {
+  const stats = usageTracker.get(userId);
+  if (!stats) return "No usage stats yet. Start by making a request!";
+  const total = stats.totalInputTokens + stats.totalOutputTokens;
+  const cost = calculateCost(stats.totalInputTokens, stats.totalOutputTokens);
+  return (
+    `**Your Usage Stats**\n` +
+    `Requests: ${stats.requestCount.toLocaleString()}\n` +
+    `Input tokens: ${stats.totalInputTokens.toLocaleString()}\n` +
+    `Output tokens: ${stats.totalOutputTokens.toLocaleString()}\n` +
+    `Total tokens: ${total.toLocaleString()}\n` +
+    `Est. cost: $${cost.toFixed(4)}\n` +
+    `Model: ${config.anthropic.model}`
+  );
+}
+
+const commands = [
+  new SlashCommandBuilder().setName("reset").setDescription("Start a new conversation"),
+  new SlashCommandBuilder().setName("stats").setDescription("Show your token usage and estimated cost"),
+].map((command) =>
+  command
+    .setContexts(InteractionContextType.Guild, InteractionContextType.BotDM)
+    .setIntegrationTypes(ApplicationIntegrationType.GuildInstall)
+    .toJSON(),
+);
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -106,11 +141,33 @@ const client = new Client({
   partials: [Partials.Channel],
 });
 
-client.once("ready", () => {
+client.once("ready", async () => {
   console.log(`Seerr Bot is online as ${client.user?.tag}`);
   console.log(
-    `Invite URL: https://discord.com/api/oauth2/authorize?client_id=${client.user?.id}&permissions=274877991936&scope=bot`
+    `Invite URL: https://discord.com/api/oauth2/authorize?client_id=${client.user?.id}&permissions=274877991936&scope=bot%20applications.commands`
   );
+  // This call replaces the full global command list, so a removed command disappears from Discord.
+  try {
+    await client.application?.commands.set(commands);
+  } catch (error) {
+    console.error("Failed to register slash commands:", error);
+  }
+});
+
+client.on("interactionCreate", async (interaction) => {
+  if (!interaction.isChatInputCommand()) return;
+
+  const userId = interaction.user.id;
+  let content = "You do not have access to this bot.";
+  if (isAllowed(userId)) {
+    if (interaction.commandName === "reset") {
+      sessionManager.clear(userId);
+      content = "Started a new conversation! What would you like to watch?";
+    } else {
+      content = formatUsageStats(userId);
+    }
+  }
+  await interaction.reply({ content, flags: MessageFlags.Ephemeral });
 });
 
 client.on("messageCreate", async (message: Message) => {
@@ -128,8 +185,7 @@ client.on("messageCreate", async (message: Message) => {
 
   if (!isMentioned && !isDM && !isAutoRespond) return;
 
-  const { allowedUserIds } = config.discord;
-  if (allowedUserIds.length > 0 && !allowedUserIds.includes(message.author.id)) return;
+  if (!isAllowed(message.author.id)) return;
 
   // Extract the request text (remove mention if present)
   let content = message.content;
@@ -147,7 +203,10 @@ client.on("messageCreate", async (message: Message) => {
         "- Get me the latest season of Severance\n" +
         "- Add all seasons of The Bear\n" +
         "- Show pending requests\n" +
-        "- Approve request #42"
+        "- Approve request #42\n\n" +
+        "Commands:\n" +
+        "- /reset starts a new conversation\n" +
+        "- /stats shows your token usage and estimated cost"
     );
     return;
   }
@@ -166,41 +225,6 @@ client.on("messageCreate", async (message: Message) => {
     if (isTextChannel) await channel.sendTyping();
 
     console.log(`Processing request from ${message.author.tag}: ${content}`);
-
-    // Check for stats command
-    const lowerContent = content.toLowerCase();
-    if (lowerContent === "stats" || lowerContent === "usage") {
-      const stats = usageTracker.get(message.author.id);
-      if (!stats) {
-        await message.reply("No usage stats yet. Start by making a request!");
-        return;
-      }
-      const total = stats.totalInputTokens + stats.totalOutputTokens;
-      const cost = calculateCost(
-        stats.totalInputTokens,
-        stats.totalOutputTokens
-      );
-      await message.reply(
-        `**Your Usage Stats**\n` +
-          `Requests: ${stats.requestCount.toLocaleString()}\n` +
-          `Input tokens: ${stats.totalInputTokens.toLocaleString()}\n` +
-          `Output tokens: ${stats.totalOutputTokens.toLocaleString()}\n` +
-          `Total tokens: ${total.toLocaleString()}\n` +
-          `Est. cost: $${cost.toFixed(4)}\n` +
-          `Model: ${config.anthropic.model}`
-      );
-      return;
-    }
-
-    // Check for session reset commands
-    const resetCommands = ["new conversation", "start over", "reset", "forget"];
-    if (resetCommands.some((cmd) => lowerContent.includes(cmd))) {
-      sessionManager.clear(message.author.id);
-      await message.reply(
-        "Started a new conversation! What would you like to watch?"
-      );
-      return;
-    }
 
     // Get existing conversation for this user
     const existingMessages = sessionManager.get(message.author.id);
