@@ -18,10 +18,12 @@ Mention the bot in a channel, or send it a DM:
 
 The bot shows the match with a poster and three buttons: **For me**, **For someone else** and **Wrong one**. **For me** sends the request to Seerr as the owner of the API key. **For someone else** shows a list of Seerr users, and the bot sends the request as the user you pick. The list shows the first 25 users only, because a Discord select menu holds 25 options.
 
-Extra commands:
+Slash commands:
 
-- `stats` or `usage` shows the user's token usage and estimated cost.
-- `reset`, `start over`, `forget` or `new conversation` clears the user's conversation. The bot also drops a conversation after 30 minutes without messages.
+- `/reset` clears your conversation. Your usage totals stay. The bot also clears a conversation after 30 minutes without messages.
+- `/stats` shows your requests, token usage and estimated cost.
+
+Only you see the reply to a slash command. The commands work in server channels and in DMs with the bot. The bot registers the commands with Discord each time it starts. Slash commands need the `applications.commands` scope in the invite link. If a server invited the bot before the link included this scope, the commands do not show in that server. To fix this, invite the bot again with the link from the startup log.
 
 Every message the bot answers costs Anthropic API tokens. Any user who can talk to the bot can also approve and decline Seerr requests. Set `DISCORD_ALLOWED_USER_IDS` to limit the bot to named users. The bot ignores messages from everyone else, including DMs.
 
