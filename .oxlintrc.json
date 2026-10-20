@@ -1,0 +1,20 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "categories": { "correctness": "off" },
+  "rules": {
+    "no-restricted-imports": ["error", {
+      "paths": [{ "name": "@anthropic-ai/sdk", "allowTypeImports": true,
+        "message": "Use runTurn from src/agent/index.ts. Only the turn module talks to the model." }],
+      "patterns": [{ "regex": "^\\.{1,2}/(.*/)?(client|sessions|usageTracker)(\\.[jt]s)?$",
+        "message": "Use runTurn, resetSession or getUsage from src/agent/index.ts." }]
+    }]
+  },
+  "overrides": [
+    { "files": ["src/__tests__/**"],
+      "rules": { "no-restricted-imports": ["error", {
+        "patterns": [{ "regex": "^\\.{1,2}/(.*/)?client(\\.[jt]s)?$",
+          "message": "Tests build their own Anthropic client with a scripted fetch." }] }] } },
+    { "files": ["src/agent/index.ts", "src/agent/client.ts"],
+      "rules": { "no-restricted-imports": "off" } }
+  ]
+}

@@ -1,5 +1,3 @@
-import { config } from "./config.js";
-
 interface UserUsage {
   totalInputTokens: number;
   totalOutputTokens: number;
@@ -35,8 +33,7 @@ const MODEL_PRICING: { prefix: string; pricing: ModelPricing }[] = [
 
 const DEFAULT_PRICING: ModelPricing = { inputPerMTok: 1, outputPerMTok: 5 };
 
-function getPricing(): ModelPricing {
-  const model = config.anthropic.model;
+function getPricing(model: string): ModelPricing {
   for (const { prefix, pricing } of MODEL_PRICING) {
     if (model.startsWith(prefix)) return pricing;
   }
@@ -44,10 +41,11 @@ function getPricing(): ModelPricing {
 }
 
 export function calculateCost(
+  model: string,
   inputTokens: number,
   outputTokens: number
 ): number {
-  const pricing = getPricing();
+  const pricing = getPricing(model);
   return (
     (inputTokens * pricing.inputPerMTok +
       outputTokens * pricing.outputPerMTok) /
@@ -55,7 +53,7 @@ export function calculateCost(
   );
 }
 
-class UsageTracker {
+export class UsageTracker {
   private usage = new Map<string, UserUsage>();
 
   record(userId: string, inputTokens: number, outputTokens: number): void {

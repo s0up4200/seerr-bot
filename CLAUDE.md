@@ -10,6 +10,7 @@ bun run dev        # Run with watch mode for development
 bun run build      # Bundle to dist/ for production
 bun run start      # Run the built bundle with node
 bun run typecheck  # Type-check with tsc (no emit)
+bun run lint       # Run oxlint (the turn module guard)
 bun test           # Run tests
 ```
 
@@ -18,8 +19,8 @@ bun test           # Run tests
 This is a Discord bot that uses the Anthropic SDK (`@anthropic-ai/sdk`) to handle natural language media requests through Seerr (a media request management system for Plex/Jellyfin).
 
 ### Core Flow
-1. **Discord Bot** (`src/index.ts`) - Listens for mentions or DMs, maintains per-user conversation sessions with 30-minute TTL
-2. **Agent** (`src/agent/index.ts`) - Uses `anthropic.beta.messages.toolRunner()` to run a tool-use loop with the system prompt
+1. **Discord Bot** (`src/index.ts`) - Listens for mentions or DMs and calls `runTurn` one time for each message
+2. **Turn module** (`src/agent/index.ts`) - `runTurn` loads the session, runs `anthropic.beta.messages.toolRunner()` with the system prompt, applies the error policy, records usage, and saves the session. `resetSession` and `getUsage` serve `/reset` and `/stats`
 3. **Client** (`src/agent/client.ts`) - Anthropic SDK client instance
 4. **Prompt** (`src/agent/prompt.ts`) - System prompt defining media request behavior
 5. **Tools** (`src/agent/tools/`) - Individual tool implementations using `betaZodTool()` with Zod v4 schemas
@@ -32,6 +33,7 @@ This is a Discord bot that uses the Anthropic SDK (`@anthropic-ai/sdk`) to handl
 - Tools return `[POSTER:url]` tags that the Discord handler parses to display images as embed thumbnails
 - The `request_media` tool only prepares a request and returns the text "Request prepared for user confirmation". `extractPendingRequest` (`src/utils.ts`) finds that text in the tool results of the current turn, and the Discord handler shows confirm buttons. Seerr gets the request only after a click. Keep that text identical in `src/agent/tools/request.ts` and `src/utils.ts`, or the buttons stop showing
 - Session management tracks conversation state per Discord user via `BetaMessageParam[]`
+- Only the turn module calls the model or writes to the session and usage stores. `.oxlintrc.json` makes lint fail on an import that goes around it
 
 ### Adding New Tools
 1. Create tool file in `src/agent/tools/` using `betaZodTool()` with a Zod schema and `run()` handler
