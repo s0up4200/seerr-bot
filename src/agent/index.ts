@@ -42,7 +42,12 @@ export function createTurnRunner(deps: {
 
   function enqueue<T>(sessionKey: string, task: () => Promise<T>): Promise<T> {
     const result = (queues.get(sessionKey) ?? Promise.resolve()).then(task);
-    queues.set(sessionKey, result.catch(() => {}));
+    // The tail holds no turn result, and it leaves the map when no newer task waits behind it.
+    const tail = result.then(() => {}, () => {});
+    queues.set(sessionKey, tail);
+    void tail.then(() => {
+      if (queues.get(sessionKey) === tail) queues.delete(sessionKey);
+    });
     return result;
   }
 
