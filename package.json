@@ -9,6 +9,7 @@
     "dev": "bun run --watch src/index.ts",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
+    "lint": "oxlint",
     "test": "bun test"
   },
   "dependencies": {
@@ -18,6 +19,7 @@
   },
   "devDependencies": {
     "@types/bun": "^1.4.3",
+    "oxlint": "^1.87.0",
     "typescript": "^7.0.2"
   }
 }
