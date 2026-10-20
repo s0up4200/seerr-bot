@@ -16,9 +16,7 @@ import {
   DMChannel,
 } from "discord.js";
 import { config } from "./config.js";
-import { processMediaRequest } from "./agent/index.js";
-import { sessionManager } from "./sessions.js";
-import { usageTracker, calculateCost } from "./usageTracker.js";
+import { getUsage, resetSession, runTurn } from "./agent/index.js";
 import { seerr } from "./services/seerr.js";
 import {
   extractPendingRequest,
@@ -106,18 +104,17 @@ function isAllowed(userId: string): boolean {
 }
 
 function formatUsageStats(userId: string): string {
-  const stats = usageTracker.get(userId);
+  const stats = getUsage(userId);
   if (!stats) return "No usage stats yet. Start by making a request!";
-  const total = stats.totalInputTokens + stats.totalOutputTokens;
-  const cost = calculateCost(stats.totalInputTokens, stats.totalOutputTokens);
+  const total = stats.inputTokens + stats.outputTokens;
   return (
     `**Your Usage Stats**\n` +
-    `Requests: ${stats.requestCount.toLocaleString()}\n` +
-    `Input tokens: ${stats.totalInputTokens.toLocaleString()}\n` +
-    `Output tokens: ${stats.totalOutputTokens.toLocaleString()}\n` +
+    `Requests: ${stats.turns.toLocaleString()}\n` +
+    `Input tokens: ${stats.inputTokens.toLocaleString()}\n` +
+    `Output tokens: ${stats.outputTokens.toLocaleString()}\n` +
     `Total tokens: ${total.toLocaleString()}\n` +
-    `Est. cost: $${cost.toFixed(4)}\n` +
-    `Model: ${config.anthropic.model}`
+    `Est. cost: $${stats.cost.toFixed(4)}\n` +
+    `Model: ${stats.model}`
   );
 }
 
@@ -161,7 +158,9 @@ client.on("interactionCreate", async (interaction) => {
   let content = "You do not have access to this bot.";
   if (isAllowed(userId)) {
     if (interaction.commandName === "reset") {
-      sessionManager.clear(userId);
+      // Discord drops a reply that takes more than 3 seconds, so do not wait for a running turn.
+      // The reset still runs after that turn and before the next message.
+      void resetSession(userId);
       content = "Started a new conversation! What would you like to watch?";
     } else {
       content = formatUsageStats(userId);
@@ -226,23 +225,11 @@ client.on("messageCreate", async (message: Message) => {
 
     console.log(`Processing request from ${message.author.tag}: ${content}`);
 
-    // Get existing conversation for this user
-    const existingMessages = sessionManager.get(message.author.id);
+    const { reply: response, messages, outcome } = await runTurn(message.author.id, content);
 
-    const {
-      result: response,
-      messages: newMessages,
-      usage,
-    } = await processMediaRequest(content, existingMessages);
-
-    // Store the conversation for future messages
-    sessionManager.set(message.author.id, newMessages);
-
-    // Record usage
-    usageTracker.record(message.author.id, usage.inputTokens, usage.outputTokens);
-
-    // Extract pending request from tool call history (not from LLM text)
-    const pendingRequest = extractPendingRequest(newMessages.slice(existingMessages?.length ?? 0));
+    // Extract pending request from tool call history (not from LLM text).
+    // A turn that failed shows no confirm buttons.
+    const pendingRequest = outcome === "ok" ? extractPendingRequest(messages) : null;
 
     // Build confirmation buttons if there's a pending request
     const buttonId = pendingRequest ? crypto.randomUUID() : "";

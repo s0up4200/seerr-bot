@@ -1,38 +1,40 @@
-import { describe, expect, it, beforeEach } from "bun:test";
-import { sessionManager } from "../sessions.js";
+import { describe, expect, it } from "bun:test";
+import { createSessionStore } from "../sessions.js";
+
+const MINUTE = 60 * 1000;
 
 describe("SessionManager", () => {
-  beforeEach(() => {
-    sessionManager.clear("test-user");
-  });
-
   it("returns undefined for unknown user", () => {
-    expect(sessionManager.get("nonexistent")).toBeUndefined();
+    expect(createSessionStore().get("nonexistent")).toBeUndefined();
   });
 
   it("stores and retrieves messages", () => {
+    const sessions = createSessionStore();
     const messages = [{ role: "user" as const, content: "hello" }];
-    sessionManager.set("test-user", messages);
-    expect(sessionManager.get("test-user")).toEqual(messages);
+    sessions.set("test-user", messages);
+    expect(sessions.get("test-user")).toEqual(messages);
   });
 
   it("clears a session", () => {
-    sessionManager.set("test-user", [{ role: "user" as const, content: "hi" }]);
-    sessionManager.clear("test-user");
-    expect(sessionManager.get("test-user")).toBeUndefined();
+    const sessions = createSessionStore();
+    sessions.set("test-user", [{ role: "user" as const, content: "hi" }]);
+    sessions.clear("test-user");
+    expect(sessions.get("test-user")).toBeUndefined();
   });
 
-  it("updates lastActivity on set", () => {
-    sessionManager.set("test-user", [{ role: "user" as const, content: "hi" }]);
-    const first = sessionManager.get("test-user");
-    expect(first).toBeDefined();
-
-    // Set again with new messages
+  it("keeps a session for 30 minutes after the last set", () => {
+    let now = 0;
+    const sessions = createSessionStore(() => now);
+    sessions.set("test-user", [{ role: "user" as const, content: "hi" }]);
+    now = 20 * MINUTE;
     const newMessages = [
       { role: "user" as const, content: "hi" },
       { role: "assistant" as const, content: "hello" },
     ];
-    sessionManager.set("test-user", newMessages);
-    expect(sessionManager.get("test-user")).toEqual(newMessages);
+    sessions.set("test-user", newMessages);
+    now = 50 * MINUTE;
+    expect(sessions.get("test-user")).toEqual(newMessages);
+    now = 50 * MINUTE + 1;
+    expect(sessions.get("test-user")).toBeUndefined();
   });
 });
